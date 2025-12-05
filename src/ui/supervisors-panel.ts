@@ -49,6 +49,23 @@ export class SupervisorsPanelProvider {
                     }
                 }
                 break;
+            case 'loadExamples':
+                this.hierarchy.loadExampleSupervisors();
+                vscode.window.showInformationMessage('Supervisores de exemplo carregados!');
+                if (this.panel) {
+                    this.panel.webview.html = this.getHtml(this.panel.webview);
+                }
+                break;
+            case 'importDocs':
+                vscode.commands.executeCommand('claudeSupervisor.importDocs');
+                break;
+            case 'clearAll':
+                this.hierarchy.clearAllSupervisors();
+                vscode.window.showInformationMessage('Todos os supervisores removidos');
+                if (this.panel) {
+                    this.panel.webview.html = this.getHtml(this.panel.webview);
+                }
+                break;
         }
     }
 
@@ -284,6 +301,57 @@ export class SupervisorsPanelProvider {
             color: var(--text-secondary);
             margin-top: 12px;
         }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-state h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .empty-state p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .empty-state .actions {
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: #0062a3;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px dashed var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-style: solid;
+            background: var(--bg-tertiary);
+        }
+
+        .btn-danger {
+            color: var(--error);
+            border-color: var(--error);
+        }
+
+        .btn-danger:hover {
+            background: var(--error);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -291,6 +359,7 @@ export class SupervisorsPanelProvider {
         <h1>🤖 SUPERVISORES</h1>
     </div>
 
+    ${this.hierarchy.hasConfiguredSupervisors() ? `
     <div class="section">
         <div class="section-title">HIERARQUIA</div>
         <div class="tree-container">
@@ -298,6 +367,24 @@ export class SupervisorsPanelProvider {
         </div>
         <div class="legend">[►] = Clique para abrir detalhes do supervisor</div>
     </div>
+    ` : `
+    <div class="section">
+        <div class="section-title">HIERARQUIA</div>
+        <div class="tree-container">
+            <div class="empty-state">
+                <h2>Nenhum supervisor configurado</h2>
+                <p>
+                    Importe documentos para criar supervisores automaticamente<br>
+                    ou carregue os exemplos para testar o sistema.
+                </p>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="send('importDocs')">📄 Importar Documentos</button>
+                    <button class="btn btn-secondary" onclick="send('loadExamples')">📚 Carregar Exemplos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `}
 
     <div class="section">
         <div class="section-title">ATIVIDADE RECENTE</div>
@@ -342,9 +429,13 @@ export class SupervisorsPanelProvider {
     <div class="section">
         <div class="section-title">AÇÕES</div>
         <div class="actions">
-            <button class="btn">+ Nova Regra</button>
-            <button class="btn">+ Novo Supervisor</button>
-            <button class="btn">📄 Importar Docs</button>
+            <button class="btn" onclick="send('addRule')">+ Nova Regra</button>
+            <button class="btn" onclick="send('addSupervisor')">+ Novo Supervisor</button>
+            <button class="btn" onclick="send('importDocs')">📄 Importar Docs</button>
+            ${this.hierarchy.hasConfiguredSupervisors() ? `
+            <button class="btn btn-secondary" onclick="send('loadExamples')">📚 Exemplos</button>
+            <button class="btn btn-danger" onclick="if(confirm('Remover TODOS os supervisores?')) send('clearAll')">🗑️ Limpar Tudo</button>
+            ` : ''}
         </div>
     </div>
 

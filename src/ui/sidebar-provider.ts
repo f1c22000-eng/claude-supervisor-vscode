@@ -447,9 +447,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <span class="section-title">
                 🤖 SUPERVISORES
             </span>
-            <span style="font-size: 11px; color: var(--success);">🟢 ${state.supervisorStats.active} ativos</span>
+            <span style="font-size: 11px; color: ${state.supervisorStats.active > 0 ? 'var(--success)' : 'var(--text-secondary)'};">${state.supervisorStats.active > 0 ? '🟢' : '⚪'} ${state.supervisorStats.active} ativos</span>
         </div>
         <div class="section-content">
+            ${this.managers.supervisors.hasConfiguredSupervisors() ? `
             <div class="supervisor-grid">
                 ${this.renderSupervisorItems()}
             </div>
@@ -461,6 +462,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 <span class="stat-label">Alertas</span>
                 <span>${state.supervisorStats.alertCount}</span>
             </div>
+            ` : `
+            <div style="color: var(--text-secondary); text-align: center; padding: 8px;">
+                Nenhum supervisor configurado<br>
+                <small>Importe documentos ou carregue exemplos</small>
+            </div>
+            `}
             <button class="open-btn" onclick="send('openSupervisors')">Abrir ►</button>
         </div>
     </div>

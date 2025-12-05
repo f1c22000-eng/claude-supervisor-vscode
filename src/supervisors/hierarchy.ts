@@ -50,7 +50,7 @@ export class SupervisorHierarchy extends EventEmitter {
         // Load persisted alert history
         this.loadAlertHistory();
 
-        // Create root router
+        // Create root router (empty by default)
         this.router = new Router({
             id: 'root-router',
             name: 'Router',
@@ -66,16 +66,23 @@ export class SupervisorHierarchy extends EventEmitter {
         // Initialize config loader
         this.configLoader = new ConfigLoader();
 
-        // Set up default coordinators
-        this.setupDefaultHierarchy();
+        // NOTE: No default supervisors are created
+        // User must import documents or load examples
     }
 
     // ========================================
-    // INITIALIZATION
+    // EXAMPLE CONFIGURATION
     // ========================================
 
-    private setupDefaultHierarchy(): void {
-        // Create default coordinators
+    /**
+     * Load example supervisors for demonstration purposes.
+     * Called only when user explicitly requests it.
+     */
+    public loadExampleSupervisors(): void {
+        // Clear existing supervisors first
+        this.clearAllSupervisors();
+
+        // Create example coordinators
         const technical = new Coordinator({
             id: 'coord-technical',
             name: 'Técnico',
@@ -103,20 +110,6 @@ export class SupervisorHierarchy extends EventEmitter {
             enabled: true
         });
 
-        // Add default specialists
-        this.addDefaultSpecialists(technical, business, behavior);
-
-        // Add coordinators to router
-        this.router.addChild(technical);
-        this.router.addChild(business);
-        this.router.addChild(behavior);
-    }
-
-    private addDefaultSpecialists(
-        technical: Coordinator,
-        business: Coordinator,
-        behavior: Coordinator
-    ): void {
         // Security specialist
         const security = new Specialist({
             id: 'spec-security',
@@ -171,9 +164,31 @@ export class SupervisorHierarchy extends EventEmitter {
             enabled: true
         });
 
+        // Build hierarchy
         technical.addChild(security);
         technical.addChild(architecture);
         behavior.addChild(completeness);
+
+        this.router.addChild(technical);
+        this.router.addChild(business);
+        this.router.addChild(behavior);
+    }
+
+    /**
+     * Clear all supervisors (keep only root router)
+     */
+    public clearAllSupervisors(): void {
+        // Remove all children from router
+        for (const child of this.router.getChildren()) {
+            this.router.removeChild(child.getId());
+        }
+    }
+
+    /**
+     * Check if hierarchy has any supervisors configured
+     */
+    public hasConfiguredSupervisors(): boolean {
+        return this.router.getChildren().length > 0;
     }
 
     // ========================================
@@ -313,9 +328,11 @@ export class SupervisorHierarchy extends EventEmitter {
         totalRules: number;
         totalCalls: number;
         totalAlerts: number;
+        hasConfigured: boolean;
     } {
-        let totalNodes = 1; // router
-        let activeNodes = this.router.isEnabled() ? 1 : 0;
+        // Don't count root router - only user-configured supervisors
+        let totalNodes = 0;
+        let activeNodes = 0;
         let totalRules = 0;
         let totalCalls = this.router.getCallCount();
         let totalAlerts = this.router.getAlertCount();
@@ -336,7 +353,14 @@ export class SupervisorHierarchy extends EventEmitter {
             countNode(child);
         }
 
-        return { totalNodes, activeNodes, totalRules, totalCalls, totalAlerts };
+        return {
+            totalNodes,
+            activeNodes,
+            totalRules,
+            totalCalls,
+            totalAlerts,
+            hasConfigured: this.hasConfiguredSupervisors()
+        };
     }
 
     public getHierarchyTree(): any {
