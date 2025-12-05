@@ -10,6 +10,7 @@ import { anthropicClient } from './api';
 import { configManager } from './config';
 import { SupervisorConfig, SupervisorType, Rule, Severity, DocumentAnalysis, ImportResult } from './types';
 import { ConfigLoader } from '../supervisors/config-loader';
+import { CONFIGURATOR_SYSTEM_PROMPT, RULE_CREATOR_PROMPT } from './configurator-prompt';
 
 // PDF and DOCX parsing libraries
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -84,33 +85,18 @@ export class Configurator {
     }
 
     private async analyzeDocument(content: string, filePath: string): Promise<DocumentAnalysis> {
-        const systemPrompt = `Você é um analisador de documentos de especificação de software.
-Analise o documento e extraia:
-1. Temas principais (áreas/módulos do sistema)
-2. Sub-temas para cada tema
-3. Regras de negócio, validações, restrições
+        // Use comprehensive system prompt that explains what Claude Supervisor is
+        const userMessage = `Analise este documento do projeto e extraia regras para supervisão.
 
-Responda em JSON com a estrutura:
-{
-  "themes": ["tema1", "tema2"],
-  "subThemes": {
-    "tema1": ["sub1", "sub2"],
-    "tema2": ["sub3"]
-  },
-  "rules": [
-    {
-      "theme": "tema1",
-      "subTheme": "sub1",
-      "description": "Descrição da regra",
-      "severity": "critical|high|medium|low",
-      "check": "O que verificar"
-    }
-  ]
-}`;
+Arquivo: ${path.basename(filePath)}
 
-        const userMessage = `Analise este documento de especificação:\n\n${content.substring(0, 15000)}`;
+=== CONTEÚDO DO DOCUMENTO ===
+${content.substring(0, 15000)}
+=== FIM DO DOCUMENTO ===
 
-        const response = await anthropicClient.callSonnet(systemPrompt, userMessage, 4000);
+Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
+
+        const response = await anthropicClient.callSonnet(CONFIGURATOR_SYSTEM_PROMPT, userMessage, 4000);
 
         if (!response) {
             return { themes: [], subThemes: {}, rules: [] };
@@ -301,21 +287,10 @@ Responda em JSON com a estrutura:
         description: string,
         context?: string
     ): Promise<Rule | null> {
-        // Ask AI to help structure the rule
-        const systemPrompt = `Você é um assistente que ajuda a criar regras de supervisão para código.
-Dado uma descrição em linguagem natural, crie uma regra estruturada.
-
-Responda em JSON:
-{
-  "description": "Descrição clara da regra",
-  "severity": "critical|high|medium|low",
-  "check": "O que o supervisor deve verificar",
-  "keywords": ["palavras", "chave"]
-}`;
-
+        // Use the rule creator prompt
         const userMessage = `Crie uma regra para: ${description}${context ? `\n\nContexto: ${context}` : ''}`;
 
-        const response = await anthropicClient.callHaiku(systemPrompt, userMessage, 300);
+        const response = await anthropicClient.callHaiku(RULE_CREATOR_PROMPT, userMessage, 300);
 
         if (!response) {
             return null;

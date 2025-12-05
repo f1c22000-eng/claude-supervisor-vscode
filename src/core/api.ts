@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { configManager } from './config';
 import { ApiUsage, ApiStats, Severity } from './types';
 import { TIMEOUTS, LIMITS, DEFAULT_MODEL_PRICING, USD_TO_BRL } from './constants';
+import { BEHAVIOR_SUPERVISOR_PROMPT, SUPERVISOR_ANALYSIS_PROMPT } from './configurator-prompt';
 
 // ============================================
 // API CLIENT
@@ -199,26 +200,27 @@ Se a regra NÃO foi violada, responda: {"violated": false}`;
         thinking: string,
         originalRequest: string,
         currentProgress: string
-    ): Promise<{ detected: boolean; type?: string; explanation?: string }> {
-        const systemPrompt = `Você é um detector de comportamento de IA. Analise se o pensamento indica:
-1. Redução de escopo (fazer menos do que pedido)
-2. Procrastinação (deixar para depois)
-3. Incompletude (dizer que terminou sem terminar)
+    ): Promise<{ detected: boolean; type?: string; explanation?: string; suggestion?: string }> {
+        // Use the comprehensive behavior supervisor prompt
+        const systemPrompt = BEHAVIOR_SUPERVISOR_PROMPT
+            .replace('{thinking}', thinking.substring(0, 2000))
+            .replace('{originalRequest}', originalRequest || 'Não especificado')
+            .replace('{progress}', currentProgress || '0%');
 
-Pedido original: ${originalRequest}
-Progresso atual: ${currentProgress}
-
-Responda em JSON:
-{"detected": true/false, "type": "scope_reduction|procrastination|incompleteness", "explanation": "breve explicação"}`;
-
-        const response = await this.callHaiku(systemPrompt, thinking, 200);
+        const response = await this.callHaiku(systemPrompt, 'Analise o thinking acima e detecte comportamentos problemáticos.', 300);
 
         if (!response) {
             return { detected: false };
         }
 
         try {
-            return JSON.parse(response);
+            const parsed = JSON.parse(response);
+            return {
+                detected: parsed.detected !== null,
+                type: parsed.detected,
+                explanation: parsed.explanation,
+                suggestion: parsed.suggestion
+            };
         } catch {
             return { detected: false };
         }
