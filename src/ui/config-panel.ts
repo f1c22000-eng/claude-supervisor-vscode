@@ -3,9 +3,12 @@
 // ============================================
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { configManager } from '../core/config';
 import { anthropicClient } from '../core/api';
 import { AVAILABLE_MODELS, ANTHROPIC_PRICING_URL, USD_TO_BRL } from '../core/constants';
+import { ProjectConfig } from '../core/types';
 
 // ============================================
 // CONFIG PANEL PROVIDER
@@ -129,11 +132,32 @@ export class ConfigPanelProvider {
                         if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
                             return 'Use apenas letras, números, _ e -';
                         }
+                        // Check if project already exists
+                        const existing = configManager.getProjects();
+                        if (existing.some(p => p.name.toLowerCase() === value.toLowerCase())) {
+                            return 'Já existe um projeto com esse nome';
+                        }
                         return null;
                     }
                 });
                 if (projectName) {
-                    vscode.window.showInformationMessage(`Projeto "${projectName}" criado! Use "Importar Documentos" para adicionar supervisores.`);
+                    // Create project config
+                    const newProject: ProjectConfig = {
+                        id: uuidv4(),
+                        name: projectName,
+                        yamlPath: path.join('config', 'supervisors', `${projectName.toLowerCase()}.yaml`),
+                        supervisors: [],
+                        enabled: true,
+                        lastUpdated: Date.now()
+                    };
+
+                    // Save to storage
+                    await configManager.addProject(newProject);
+                    console.log(`[ConfigPanel] Projeto criado:`, newProject);
+
+                    vscode.window.showInformationMessage(
+                        `Projeto "${projectName}" criado! Use "Importar Documentos" para adicionar supervisores.`
+                    );
                 }
                 break;
             case 'importDocs':
