@@ -155,6 +155,21 @@ export async function activate(context: vscode.ExtensionContext) {
             })
         );
 
+        // Auto-connect if API is ready and autoConnect is enabled
+        const config = configManager.getConfig();
+        if (config.autoConnect && apiInitialized) {
+            console.log('Auto-connecting (API ready and autoConnect enabled)...');
+            try {
+                await interceptorManager.start();
+                isActive = true;
+                updateStatusBar(ConnectionStatus.CONNECTED);
+                console.log('Auto-connected successfully');
+            } catch (error) {
+                console.error('Auto-connect failed:', error);
+                // Don't show error to user on auto-connect failure
+            }
+        }
+
         console.log(`${EXTENSION_NAME} activated successfully`);
 
     } catch (error) {
@@ -440,7 +455,7 @@ function openPanel(context: vscode.ExtensionContext, type: string) {
             supervisorsProvider.setPanel(panel);
             break;
         case 'monitor':
-            const monitorProvider = new MonitorPanelProvider(context.extensionUri, interceptorManager, anthropicClient);
+            const monitorProvider = new MonitorPanelProvider(context.extensionUri, interceptorManager, anthropicClient, supervisorHierarchy);
             panel.webview.html = monitorProvider.getHtml(panel.webview);
             monitorProvider.setPanel(panel);
             break;

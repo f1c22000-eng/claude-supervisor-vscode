@@ -198,6 +198,11 @@
           "type": "number",
           "default": 10,
           "description": "Buffer de notas em segundos"
+        },
+        "claudeSupervisor.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Conectar automaticamente quando API Key estiver configurada"
         }
       }
     }

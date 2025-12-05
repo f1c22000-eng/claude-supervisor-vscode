@@ -37,11 +37,14 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         this.extensionUri = extensionUri;
         this.managers = managers;
 
-        // Listen for updates
+        // Listen for updates from all sources
         this.managers.interceptor.on('status_change', () => this.refresh());
         this.managers.interceptor.on('stats_update', () => this.refresh());
         this.managers.scope.on('scope_event', () => this.refresh());
         this.managers.supervisors.on('analysis_complete', () => this.refresh());
+
+        // Listen for config changes (API key, models, etc.)
+        configManager.onConfigChange(() => this.refresh());
     }
 
     public resolveWebviewView(
@@ -381,6 +384,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <button class="icon-btn" onclick="send('openHelp')" title="Ajuda">?</button>
         </div>
     </div>
+
+    ${state.apiStatus !== ApiStatus.VALID ? `
+    <div class="section" style="background: linear-gradient(135deg, #1a365d, #2d3748); border-color: #4a5568;">
+        <div class="section-content" style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 8px;">🚀</div>
+            <div style="font-weight: 600; margin-bottom: 8px;">Configure para Começar</div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px;">
+                Adicione sua API Key da Anthropic para ativar a supervisão em tempo real
+            </div>
+            <button class="action-btn" onclick="send('openConfig')" style="width: 100%; background: var(--accent);">
+                ⚙️ Configurar API Key
+            </button>
+        </div>
+    </div>
+    ` : ''}
 
     <div class="section">
         <div class="section-header">

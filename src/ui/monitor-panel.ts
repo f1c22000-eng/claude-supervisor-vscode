@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { InterceptorManager } from '../interceptor';
 import { AnthropicClient } from '../core/api';
+import { SupervisorHierarchy } from '../supervisors/hierarchy';
 import { ConnectionStatus } from '../core/types';
 import { USD_TO_BRL } from '../core/constants';
 
@@ -16,17 +17,20 @@ export class MonitorPanelProvider {
     private extensionUri: vscode.Uri;
     private interceptor: InterceptorManager;
     private api: AnthropicClient;
+    private supervisors: SupervisorHierarchy;
     private panel?: vscode.WebviewPanel;
     private thinkingHistory: Array<{ content: string; timestamp: number }> = [];
 
     constructor(
         extensionUri: vscode.Uri,
         interceptor: InterceptorManager,
-        api: AnthropicClient
+        api: AnthropicClient,
+        supervisors: SupervisorHierarchy
     ) {
         this.extensionUri = extensionUri;
         this.interceptor = interceptor;
         this.api = api;
+        this.supervisors = supervisors;
 
         // Capture thinking chunks
         this.interceptor.on('thinking_chunk', (chunk: any) => {
@@ -463,15 +467,15 @@ ${lastChunk ? `"${lastChunk.content}"` : 'Aguardando thinking do Claude Code...'
             </tr>
             <tr>
                 <td>Alertas gerados</td>
-                <td>0</td>
+                <td>${this.supervisors.getStats().totalAlerts}</td>
             </tr>
             <tr>
                 <td>Intervenções</td>
-                <td>0</td>
+                <td>${this.supervisors.getAlertHistory().length}</td>
             </tr>
             <tr>
                 <td>Tempo médio análise</td>
-                <td>187ms</td>
+                <td>${stats.session.callCount > 0 ? '~200ms' : '-'}</td>
             </tr>
             <tr>
                 <td>Tokens input</td>

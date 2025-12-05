@@ -56,7 +56,8 @@ export class ConfigManager {
             detectProcrastination: config.get<boolean>('detectProcrastination', true),
             verifyCompleteness: config.get<boolean>('verifyCompleteness', true),
             aggressiveMode: config.get<boolean>('aggressiveMode', false),
-            noteBufferSeconds: config.get<number>('noteBufferSeconds', 10)
+            noteBufferSeconds: config.get<number>('noteBufferSeconds', 10),
+            autoConnect: config.get<boolean>('autoConnect', true)
         };
     }
 
@@ -142,6 +143,32 @@ export class ConfigManager {
 
     public getProject(projectId: string): ProjectConfig | undefined {
         return this.getProjects().find(p => p.id === projectId);
+    }
+
+    /**
+     * Get the project for the current workspace (if any)
+     */
+    public getCurrentWorkspaceProject(): ProjectConfig | undefined {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) return undefined;
+
+        const workspacePath = workspaceFolder.uri.fsPath;
+        return this.getProjects().find(p => p.yamlPath.startsWith(workspacePath));
+    }
+
+    /**
+     * Check if current workspace has a configured project
+     */
+    public hasWorkspaceProject(): boolean {
+        return this.getCurrentWorkspaceProject() !== undefined;
+    }
+
+    /**
+     * Check if API key is configured and valid
+     */
+    public async isApiReady(): Promise<boolean> {
+        const apiKey = await this.getApiKey();
+        return apiKey.startsWith('sk-ant-');
     }
 
     // ========================================

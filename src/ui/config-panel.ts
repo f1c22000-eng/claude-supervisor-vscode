@@ -14,6 +14,7 @@ import { AVAILABLE_MODELS, ANTHROPIC_PRICING_URL, USD_TO_BRL } from '../core/con
 export class ConfigPanelProvider {
     private extensionUri: vscode.Uri;
     private panel?: vscode.WebviewPanel;
+    private configChangeDisposable?: vscode.Disposable;
 
     constructor(extensionUri: vscode.Uri) {
         this.extensionUri = extensionUri;
@@ -25,12 +26,29 @@ export class ConfigPanelProvider {
         panel.webview.onDidReceiveMessage(async message => {
             await this.handleMessage(message);
         });
+
+        // Listen for external config changes and refresh panel
+        this.configChangeDisposable = configManager.onConfigChange(() => {
+            if (this.panel) {
+                this.panel.webview.html = this.getHtml(this.panel.webview);
+            }
+        });
+
+        // Cleanup on panel dispose
+        panel.onDidDispose(() => {
+            if (this.configChangeDisposable) {
+                this.configChangeDisposable.dispose();
+                this.configChangeDisposable = undefined;
+            }
+        });
     }
 
     private async handleMessage(message: any): Promise<void> {
         switch (message.command) {
             case 'saveApiKey':
                 await configManager.setApiKey(message.apiKey);
+                // Reinitialize API client with new key
+                await anthropicClient.initialize();
                 const validResult = await anthropicClient.validateApiKey(message.apiKey);
                 if (validResult.valid) {
                     vscode.window.showInformationMessage('API Key salva e validada!');
@@ -44,6 +62,8 @@ export class ConfigPanelProvider {
                 for (const [key, value] of Object.entries(message.config)) {
                     await configManager.updateConfig(key as any, value as any);
                 }
+                // Reinitialize API client with new config
+                await anthropicClient.initialize();
                 vscode.window.showInformationMessage('Configurações salvas!');
                 break;
             case 'resetConfig':
@@ -62,6 +82,8 @@ export class ConfigPanelProvider {
             case 'saveModels':
                 await configManager.setSupervisorModel(message.supervisorModel);
                 await configManager.setConfiguratorModel(message.configuratorModel);
+                // Reinitialize API client with new models
+                await anthropicClient.initialize();
                 vscode.window.showInformationMessage('Modelos salvos!');
                 break;
             case 'saveModelPricing':

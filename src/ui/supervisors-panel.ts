@@ -420,7 +420,7 @@ export class SupervisorsPanelProvider {
                 <div class="stat-label">Taxa de OK</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">187ms</div>
+                <div class="stat-value">${stats.totalCalls > 0 ? '~200ms' : '-'}</div>
                 <div class="stat-label">Tempo médio</div>
             </div>
         </div>

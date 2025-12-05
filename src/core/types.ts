@@ -232,6 +232,7 @@ export interface ExtensionConfig {
     verifyCompleteness: boolean;
     aggressiveMode: boolean;
     noteBufferSeconds: number;
+    autoConnect: boolean;
 }
 
 export interface ProjectConfig {
