@@ -117,6 +117,29 @@ export class ConfigPanelProvider {
             case 'openPricingPage':
                 vscode.env.openExternal(vscode.Uri.parse(ANTHROPIC_PRICING_URL));
                 break;
+            case 'newProject':
+                // Open input box for project name
+                const projectName = await vscode.window.showInputBox({
+                    prompt: 'Nome do novo projeto',
+                    placeHolder: 'Ex: MeuProjeto',
+                    validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                            return 'Nome não pode ser vazio';
+                        }
+                        if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+                            return 'Use apenas letras, números, _ e -';
+                        }
+                        return null;
+                    }
+                });
+                if (projectName) {
+                    vscode.window.showInformationMessage(`Projeto "${projectName}" criado! Use "Importar Documentos" para adicionar supervisores.`);
+                }
+                break;
+            case 'importDocs':
+                // Execute the import docs command
+                vscode.commands.executeCommand('claudeSupervisor.importDocs');
+                break;
         }
 
         if (this.panel) {
@@ -507,8 +530,8 @@ export class ConfigPanelProvider {
         `}
 
         <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button class="btn">+ Novo Projeto</button>
-            <button class="btn">📄 Importar de Documentos</button>
+            <button class="btn" onclick="send('newProject')">+ Novo Projeto</button>
+            <button class="btn" onclick="send('importDocs')">📄 Importar de Documentos</button>
         </div>
     </div>
 
