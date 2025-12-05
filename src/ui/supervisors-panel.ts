@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { SupervisorHierarchy } from '../supervisors/hierarchy';
 import { SupervisorNode } from '../supervisors/supervisor-node';
+import { SupervisorDetailPanelProvider } from './supervisor-detail-panel';
 
 // ============================================
 // SUPERVISORS PANEL PROVIDER
@@ -37,8 +38,7 @@ export class SupervisorsPanelProvider {
     private handleMessage(message: any): void {
         switch (message.command) {
             case 'openSupervisor':
-                // Open supervisor detail panel
-                vscode.window.showInformationMessage(`Abrindo supervisor: ${message.id}`);
+                this.openSupervisorDetail(message.id);
                 break;
             case 'toggleSupervisor':
                 const node = this.hierarchy.findNode(message.id);
@@ -50,6 +50,33 @@ export class SupervisorsPanelProvider {
                 }
                 break;
         }
+    }
+
+    private openSupervisorDetail(supervisorId: string): void {
+        const node = this.hierarchy.findNode(supervisorId);
+        if (!node) {
+            vscode.window.showErrorMessage(`Supervisor "${supervisorId}" não encontrado`);
+            return;
+        }
+
+        const detailPanel = vscode.window.createWebviewPanel(
+            `claudeSupervisor.supervisorDetail.${supervisorId}`,
+            `Supervisor: ${node.getName()}`,
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            }
+        );
+
+        const provider = new SupervisorDetailPanelProvider(
+            this.extensionUri,
+            this.hierarchy,
+            supervisorId
+        );
+
+        detailPanel.webview.html = provider.getHtml(detailPanel.webview);
+        provider.setPanel(detailPanel);
     }
 
     public getHtml(webview: vscode.Webview): string {
