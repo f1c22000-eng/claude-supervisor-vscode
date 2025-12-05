@@ -63,6 +63,59 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Validação de inputs em comandos
 - Sem coleta de telemetria
 
+## [1.1.0] - 2024-12-05
+
+### Adicionado
+
+#### Supervisores Core (Sempre Ativos)
+- **7 supervisores de auto-supervisão** que monitoram o próprio Claude Code
+- Campo `always_active: true` no YAML para supervisores que não podem ser desativados
+- Campo `load_priority` para controle de ordem de carregamento
+- Ícone de cadeado 🔒 na árvore de supervisores para supervisores sempre ativos
+- Proteção contra desativação de supervisores core via UI
+
+#### Supervisores Implementados
+- `Verificador.Conclusao` - Detecta "pronto" sem evidência de teste
+- `Verificador.DadosReais` - Detecta valores hardcoded que deveriam ser calculados
+- `Verificador.EsforcoCompleto` - Detecta redução de escopo ("versão simplificada")
+- `Verificador.Teste` - Exige teste após implementação
+- `Verificador.Integracao` - Verifica se componentes estão conectados
+- `Verificador.Requisitos` - Detecta requisitos adiados ou esquecidos
+- `Verificador.Documentacao` - Verifica se documentação acompanha mudanças
+
+#### Painel de Importação (Reescrito)
+- Seleção de arquivos via file picker (PDF, DOCX, MD, YAML)
+- Análise real usando Claude Sonnet via Configurator
+- Preview da hierarquia gerada antes de aplicar
+- Botão "Aplicar" que adiciona supervisores à hierarquia
+
+#### Monitor
+- Botão pausar/continuar stream funcional
+- Botão copiar thinking para clipboard
+- Botão exportar histórico (JSON)
+- Estado `streamPaused` para controle do stream
+
+#### Sidebar
+- Contador de chunks corrigido para usar `chunksProcessed`
+- Botão toggle com texto dinâmico ("Desativar"/"Ativar")
+- Sincronização de estado entre painéis via eventos
+
+#### Sistema de Prompts
+- `CONFIGURATOR_SYSTEM_PROMPT` para análise de documentos
+- `BEHAVIOR_SUPERVISOR_PROMPT` para detecção comportamental
+- `CORE_BEHAVIOR_ANALYSIS_PROMPT` para análise de thinking
+- Prompts específicos: CONCLUSION_CHECK, HARDCODE_CHECK, SCOPE_REDUCTION, TEST_CHECK
+
+### Corrigido
+- Import panel era apenas placeholder - agora funcional
+- Botões do monitor sem handlers - adicionados
+- Sidebar chunks counter mostrava valor errado
+- Sidebar botão não mudava texto dinamicamente
+
+### Limitações Conhecidas
+- Drag-and-drop não funciona em WebViews do VS Code (limitação da plataforma)
+- Workaround: usar file picker em vez de arrastar arquivos
+
 ## [Unreleased]
 
 ### Planejado
@@ -70,9 +123,3 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Dashboard de custos histórico
 - Integração com Git para contexto
 - Modo offline com cache local
-
-### Implementado (não lançado)
-- ✅ Suporte a PDF e DOCX no importador
-- ✅ Modelos e preços configuráveis via UI
-- ✅ Comando addRule com wizard de severidade
-- ✅ Persistência de histórico de alertas

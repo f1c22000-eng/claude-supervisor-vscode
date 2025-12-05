@@ -66,6 +66,12 @@ export async function activate(context: vscode.ExtensionContext) {
         terminalHandler = new TerminalHandler(scopeManager, supervisorHierarchy);
         console.log('Managers initialized');
 
+        // Load core behavior supervisors (always active)
+        // These detect problematic behaviors like premature conclusions, hardcoded values, etc.
+        supervisorHierarchy.setExtensionPath(context.extensionPath);
+        await supervisorHierarchy.loadCoreBehaviorSupervisors();
+        console.log(`Core behavior supervisors loaded: ${supervisorHierarchy.getAlwaysActiveCount()} always-active`);
+
         // Connect interceptor to supervisor hierarchy
         interceptorManager.on('thinking_chunk', async (chunk: any) => {
             try {

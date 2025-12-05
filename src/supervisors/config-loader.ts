@@ -18,6 +18,9 @@ interface YamlRule {
     severity: string;
     check: string;
     example_violation?: string;
+    violation_examples?: string[];
+    valid_examples?: string[];
+    action?: string;
     enabled?: boolean;
 }
 
@@ -25,6 +28,7 @@ interface YamlSupervisor {
     name: string;
     type: string;
     parent?: string;
+    description?: string;
     keywords?: string[];
     rules?: YamlRule[];
     enabled?: boolean;
@@ -33,7 +37,17 @@ interface YamlSupervisor {
 interface YamlConfig {
     project: string;
     version?: string;
+    always_active?: boolean;
+    load_priority?: number;
     supervisors: YamlSupervisor[];
+}
+
+// Extended config result with metadata
+export interface LoadedConfigResult {
+    configs: SupervisorConfig[];
+    projectName: string;
+    alwaysActive: boolean;
+    loadPriority: number;
 }
 
 // ============================================
@@ -51,6 +65,39 @@ export class ConfigLoader {
         try {
             const content = fs.readFileSync(filePath, 'utf-8');
             return this.parseYaml(content);
+        } catch (error) {
+            console.error(`Failed to load config from ${filePath}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load config with full metadata (always_active, load_priority, etc.)
+     */
+    public async loadFromFileWithMetadata(filePath: string): Promise<LoadedConfigResult> {
+        try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const parsed = YAML.parse(content) as YamlConfig;
+
+            if (!parsed || !parsed.supervisors) {
+                return {
+                    configs: [],
+                    projectName: parsed?.project || 'unknown',
+                    alwaysActive: false,
+                    loadPriority: 100
+                };
+            }
+
+            const configs = parsed.supervisors.map(s =>
+                this.convertToSupervisorConfig(s, parsed.project, parsed.always_active)
+            );
+
+            return {
+                configs,
+                projectName: parsed.project,
+                alwaysActive: parsed.always_active || false,
+                loadPriority: parsed.load_priority || 100
+            };
         } catch (error) {
             console.error(`Failed to load config from ${filePath}:`, error);
             throw error;
@@ -91,15 +138,21 @@ export class ConfigLoader {
         return parsed.supervisors.map(s => this.convertToSupervisorConfig(s, parsed.project));
     }
 
-    private convertToSupervisorConfig(yaml: YamlSupervisor, projectName: string): SupervisorConfig {
+    private convertToSupervisorConfig(
+        yaml: YamlSupervisor,
+        projectName: string,
+        alwaysActive: boolean = false
+    ): SupervisorConfig {
         return {
             id: this.generateId(projectName, yaml.name),
             name: yaml.name,
             type: this.parseType(yaml.type),
             parentId: yaml.parent ? this.generateId(projectName, yaml.parent) : undefined,
+            description: yaml.description,
             keywords: yaml.keywords || [],
             rules: (yaml.rules || []).map(r => this.convertToRule(r)),
-            enabled: yaml.enabled !== false
+            enabled: yaml.enabled !== false,
+            alwaysActive
         };
     }
 

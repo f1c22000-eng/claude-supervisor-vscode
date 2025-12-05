@@ -41,6 +41,14 @@ export class SupervisorsPanelProvider {
                 this.openSupervisorDetail(message.id);
                 break;
             case 'toggleSupervisor':
+                // Check if supervisor is always active
+                if (this.hierarchy.isAlwaysActive(message.id)) {
+                    vscode.window.showWarningMessage(
+                        'Este supervisor é sempre ativo e não pode ser desativado. ' +
+                        'Ele é essencial para detectar comportamentos problemáticos.'
+                    );
+                    return;
+                }
                 const node = this.hierarchy.findNode(message.id);
                 if (node) {
                     node.setEnabled(!node.isEnabled());
@@ -216,6 +224,12 @@ export class SupervisorsPanelProvider {
             font-size: 11px;
         }
 
+        .tree-locked {
+            font-size: 12px;
+            margin-left: 4px;
+            color: var(--warning);
+        }
+
         .activity-list {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -365,7 +379,7 @@ export class SupervisorsPanelProvider {
         <div class="tree-container">
             ${this.renderTree(tree)}
         </div>
-        <div class="legend">[►] = Clique para abrir detalhes do supervisor</div>
+        <div class="legend">[►] = Clique para abrir detalhes | [🔒] = Supervisor sempre ativo (não pode ser desativado)</div>
     </div>
     ` : `
     <div class="section">
@@ -463,12 +477,14 @@ export class SupervisorsPanelProvider {
                     node.type === 'coordinator' ? '📁' : '🔍';
 
         const children = node.children || [];
+        const isAlwaysActive = this.hierarchy.isAlwaysActive(node.id);
 
         return `
             <div class="tree-node ${depth === 0 ? 'root' : ''}">
                 <div class="tree-item" onclick="openSupervisor('${node.id}')">
                     <span class="tree-icon">${icon}</span>
                     <span class="tree-name">${node.name}</span>
+                    ${isAlwaysActive ? '<span class="tree-locked" title="Supervisor sempre ativo (não pode ser desativado)">🔒</span>' : ''}
                     ${node.rulesCount > 0 ? `<span class="tree-rules">(${node.rulesCount} regras)</span>` : ''}
                     <span class="tree-status">${node.enabled ? '🟢' : '⚪'}</span>
                     <button class="tree-btn" onclick="event.stopPropagation(); openSupervisor('${node.id}')">►</button>

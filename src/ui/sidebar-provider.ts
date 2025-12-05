@@ -553,7 +553,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             </div>
             <div class="stat-row">
                 <span class="stat-label">Thinking chunks</span>
-                <span>${state.apiStats.session.callCount}</span>
+                <span>${this.managers.interceptor.getState().chunksProcessed}</span>
             </div>
             <button class="open-btn" onclick="send('openMonitor')">Abrir ►</button>
         </div>
@@ -580,7 +580,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <button class="action-btn" onclick="send('addNote')">+ Nota</button>
         <button class="action-btn" onclick="send('addRule')">+ Regra</button>
         <button class="action-btn" onclick="send('importDocs')">📄 Importar</button>
-        <button class="action-btn" onclick="send('toggle')">⏸️ Pausar</button>
+        <button class="action-btn" onclick="send('toggle')">${state.connectionStatus === ConnectionStatus.CONNECTED ? '⏸️ Pausar' : '▶️ Retomar'}</button>
     </div>
 
     <script>

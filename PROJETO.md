@@ -182,8 +182,29 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 - [x] Validar estrutura do YAML
 - [x] Montar árvore de supervisores em memória
 - [x] Hot reload quando arquivo YAML muda
+- [x] Suporte a `always_active: true` para supervisores core
+- [x] Suporte a `load_priority` para ordem de carregamento
+- [x] Método `loadFromFileWithMetadata()` para carregar com metadados
 
-### 3.7 Chamadas Paralelas
+### 3.7 Supervisores Core (Sempre Ativos) ✅
+
+- [x] Criar `config/supervisors/core-behavior.yaml` com 7 supervisores
+- [x] Implementar `loadCoreBehaviorSupervisors()` em hierarchy.ts
+- [x] Set `alwaysActiveIds` para rastrear supervisores que não podem ser desativados
+- [x] Método `isAlwaysActive(id)` para verificar status
+- [x] Ícone de cadeado 🔒 na UI para supervisores core
+- [x] Proteção contra toggle de supervisores core
+
+#### Supervisores Core Implementados:
+1. **Verificador.Conclusao** - Detecta "pronto" sem evidência de teste
+2. **Verificador.DadosReais** - Detecta valores hardcoded
+3. **Verificador.EsforcoCompleto** - Detecta redução de escopo
+4. **Verificador.Teste** - Exige teste após implementação
+5. **Verificador.Integracao** - Verifica componentes conectados
+6. **Verificador.Requisitos** - Detecta requisitos adiados
+7. **Verificador.Documentacao** - Verifica documentação atualizada
+
+### 3.9 Chamadas Paralelas
 
 - [x] Implementar `Promise.all` para múltiplos supervisores
 - [x] Timeout de 5 segundos por chamada
@@ -302,15 +323,29 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 ### 5.7 Painel: Importar Documentos
 
 - [x] Criar `src/ui/import-panel.ts`
-- [x] Área de drag-and-drop para arquivos
+- [x] Área de drag-and-drop para arquivos (limitação VS Code - usar file picker)
 - [x] Lista de arquivos selecionados
 - [x] Campo nome do projeto
-- [x] Botão analisar e gerar
+- [x] Botão analisar e gerar (usa Configurator com Sonnet)
 - [x] Indicador de progresso
 - [x] Preview da hierarquia gerada
+- [x] Botão "Aplicar" para adicionar supervisores à hierarquia
 - [x] Ver layout em `TELAS.md` seção "Tela: Importar Documentos"
 
-### 5.8 Sistema de Help Integrado
+### 5.8 Painel: Monitor (Funcionalidades Extras)
+
+- [x] Botão pausar/continuar stream
+- [x] Botão copiar thinking para clipboard
+- [x] Botão exportar histórico como JSON
+- [x] Estado `streamPaused` para controle
+
+### 5.9 Sidebar (Correções)
+
+- [x] Contador de chunks usa `chunksProcessed` real
+- [x] Botão toggle com texto dinâmico ("Desativar"/"Ativar")
+- [x] Sincronização via EventEmitter entre painéis
+
+### 5.10 Sistema de Help Integrado
 
 - [x] Criar `src/ui/help-provider.ts`
 - [x] Carregar arquivos de help de `help/`
@@ -361,6 +396,18 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 - [x] Detectar área automaticamente pelo contexto
 - [x] Perguntar severidade
 - [x] Salvar e ativar imediatamente
+
+### 6.5 Sistema de Prompts ✅
+
+- [x] Criar `src/core/prompts/` com prompts organizados
+- [x] `configurator-prompt.ts` - CONFIGURATOR_SYSTEM_PROMPT para análise de documentos
+- [x] `behavior-prompt.ts` - BEHAVIOR_SUPERVISOR_PROMPT para detecção comportamental
+- [x] `core-behavior-prompt.ts` - Prompts para supervisores core:
+  - [x] CORE_BEHAVIOR_ANALYSIS_PROMPT
+  - [x] CONCLUSION_CHECK_PROMPT
+  - [x] HARDCODE_CHECK_PROMPT
+  - [x] SCOPE_REDUCTION_PROMPT
+  - [x] TEST_CHECK_PROMPT
 
 ---
 

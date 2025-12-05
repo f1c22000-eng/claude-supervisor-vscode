@@ -4,6 +4,8 @@
 
 import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SupervisorNode } from './supervisor-node';
 import { Router } from './router';
 import { Coordinator } from './coordinator';
@@ -41,6 +43,8 @@ export class SupervisorHierarchy extends EventEmitter {
     private isAnalyzing: boolean = false;
     private analysisQueue: ThinkingChunk[] = [];
     private alertHistory: AlertHistoryEntry[] = [];
+    private alwaysActiveIds: Set<string> = new Set();  // IDs of supervisors that cannot be disabled
+    private extensionPath: string = '';
     private static readonly MAX_HISTORY_SIZE = 100;
     private static readonly HISTORY_KEY = 'claudeSupervisor.alertHistory';
 
@@ -66,8 +70,116 @@ export class SupervisorHierarchy extends EventEmitter {
         // Initialize config loader
         this.configLoader = new ConfigLoader();
 
-        // NOTE: No default supervisors are created
-        // User must import documents or load examples
+        // NOTE: Core behavior supervisors are loaded via loadCoreBehaviorSupervisors()
+        // which must be called after extension context is available
+    }
+
+    /**
+     * Set extension path (needed for loading bundled configs)
+     */
+    public setExtensionPath(extPath: string): void {
+        this.extensionPath = extPath;
+    }
+
+    /**
+     * Load core behavior supervisors (always active, cannot be disabled)
+     * These detect problematic behaviors like premature conclusions, hardcoded values, etc.
+     */
+    public async loadCoreBehaviorSupervisors(): Promise<void> {
+        // Try multiple possible paths for the config
+        const possiblePaths = [
+            // When running in development (from source)
+            path.join(this.extensionPath, 'config', 'supervisors', 'core-behavior.yaml'),
+            // When running packaged extension
+            path.join(this.extensionPath, 'out', 'config', 'supervisors', 'core-behavior.yaml'),
+            // Relative to current file
+            path.join(__dirname, '..', '..', 'config', 'supervisors', 'core-behavior.yaml'),
+        ];
+
+        let configPath: string | null = null;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                configPath = p;
+                break;
+            }
+        }
+
+        if (!configPath) {
+            console.warn('[Hierarchy] Core behavior config not found. Tried paths:', possiblePaths);
+            return;
+        }
+
+        try {
+            console.log('[Hierarchy] Loading core behavior supervisors from:', configPath);
+            const result = await this.configLoader.loadFromFileWithMetadata(configPath);
+
+            if (result.configs.length === 0) {
+                console.warn('[Hierarchy] Core behavior config is empty');
+                return;
+            }
+
+            // First, create parent coordinators if needed
+            const parentNames = new Set<string>();
+            for (const config of result.configs) {
+                if (config.parentId) {
+                    // Extract parent name from parentId (e.g., "_core_behavior-comportamento" -> "Comportamento")
+                    const parentName = config.parentId.split('-').pop() || '';
+                    parentNames.add(parentName);
+                }
+            }
+
+            // Create parent coordinators
+            for (const parentName of parentNames) {
+                const capitalizedName = parentName.charAt(0).toUpperCase() + parentName.slice(1);
+                const parentId = `${result.projectName.toLowerCase()}-${parentName.toLowerCase()}`;
+
+                // Check if parent already exists
+                if (!this.findNode(parentId)) {
+                    const coordinator = new Coordinator({
+                        id: parentId,
+                        name: capitalizedName,
+                        type: SupervisorType.COORDINATOR,
+                        keywords: [],
+                        rules: [],
+                        enabled: true,
+                        alwaysActive: result.alwaysActive
+                    });
+                    this.router.addChild(coordinator);
+                    if (result.alwaysActive) {
+                        this.alwaysActiveIds.add(parentId);
+                    }
+                }
+            }
+
+            // Now add all supervisors from config
+            for (const config of result.configs) {
+                const node = this.addSupervisorFromConfig(config);
+
+                // Mark as always active if specified
+                if (result.alwaysActive) {
+                    this.alwaysActiveIds.add(config.id);
+                }
+            }
+
+            console.log(`[Hierarchy] Loaded ${result.configs.length} core behavior supervisors (always active: ${result.alwaysActive})`);
+
+        } catch (error) {
+            console.error('[Hierarchy] Failed to load core behavior supervisors:', error);
+        }
+    }
+
+    /**
+     * Check if a supervisor is always active (cannot be disabled)
+     */
+    public isAlwaysActive(supervisorId: string): boolean {
+        return this.alwaysActiveIds.has(supervisorId);
+    }
+
+    /**
+     * Get count of always-active supervisors
+     */
+    public getAlwaysActiveCount(): number {
+        return this.alwaysActiveIds.size;
     }
 
     // ========================================

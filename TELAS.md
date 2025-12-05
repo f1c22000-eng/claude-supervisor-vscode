@@ -237,7 +237,9 @@ Abre quando clica em "Abrir" na seção Supervisores.
 │  │  ├── 📁 Técnico                               🟢         │   │
 │  │  │   ├── 🔍 Frontend (6 regras)              🟢  [►]    │   │
 │  │  │   ├── 🔍 Segurança (8 regras)             🟢  [►]    │   │
-│  │  │   └── 🔍 Arquitetura (5 regras)           🟢  [►]    │   │
+│  │  │   ├── 🔍 Arquitetura (5 regras)           🟢  [►]    │   │
+│  │  │   ├── 🔍🔒 Verificador.DadosReais         🟢  [►]    │   │
+│  │  │   └── 🔍🔒 Verificador.Integracao         🟢  [►]    │   │
 │  │  │                                                       │   │
 │  │  ├── 📁 Negócio                               🟢         │   │
 │  │  │   ├── 🔍 Optimizer.Genético (12 regras)   🟢  [►]    │   │
@@ -246,12 +248,18 @@ Abre quando clica em "Abrir" na seção Supervisores.
 │  │  │   └── 🔍 Synflux.Pedidos (7 regras)       🟢  [►]    │   │
 │  │  │                                                       │   │
 │  │  └── 📁 Comportamento                         🟢         │   │
+│  │      ├── 🔍🔒 Verificador.Conclusao          🟢  [►]    │   │
+│  │      ├── 🔍🔒 Verificador.EsforcoCompleto    🟢  [►]    │   │
+│  │      ├── 🔍🔒 Verificador.Teste              🟢  [►]    │   │
+│  │      ├── 🔍🔒 Verificador.Requisitos         🟢  [►]    │   │
+│  │      ├── 🔍🔒 Verificador.Documentacao       🟢  [►]    │   │
 │  │      ├── 🔍 Completude (4 regras)            🟢  [►]    │   │
 │  │      └── 🔍 Escopo (3 regras)                🟢  [►]    │   │
 │  │                                                          │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  [►] = Clique para abrir detalhes do supervisor                │
+│  🔒 = Supervisor sempre ativo (não pode ser desativado)        │
 │                                                                 │
 │  ────────────────────────────────────────────────────────────  │
 │                                                                 │
@@ -618,6 +626,9 @@ Abre quando clica em "Abrir" na seção Configuração ou no ícone ⚙️.
 
 Abre quando clica em "Importar de Documentos".
 
+**NOTA:** Drag-and-drop não funciona em WebViews do VS Code por limitação de segurança.
+Use o botão "Selecionar Arquivos" para escolher documentos via file picker.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  📄 IMPORTAR DOCUMENTOS                            [← Voltar]   │
@@ -629,14 +640,11 @@ Abre quando clica em "Importar de Documentos".
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                                                          │   │
 │  │                                                          │   │
-│  │           📁 Arraste arquivos aqui                      │   │
-│  │                                                          │   │
-│  │                     ou                                   │   │
-│  │                                                          │   │
 │  │              [Selecionar Arquivos]                      │   │
 │  │                                                          │   │
+│  │     Formatos aceitos: .md, .txt, .pdf, .docx, .yaml     │   │
 │  │                                                          │   │
-│  │     Formatos aceitos: .md, .txt, .pdf, .docx            │   │
+│  │  ⚠️ Drag-and-drop não suportado (limitação VS Code)    │   │
 │  │                                                          │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
@@ -826,6 +834,7 @@ BOLINHAS DE STATUS:
 ⏸️ = Pausado
 ▶️ = Iniciar/Continuar
 ⏹️ = Parar
+🔒 = Sempre ativo (não pode ser desativado)
 
 SEVERIDADES:
 

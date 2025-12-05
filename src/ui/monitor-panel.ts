@@ -20,6 +20,7 @@ export class MonitorPanelProvider {
     private supervisors: SupervisorHierarchy;
     private panel?: vscode.WebviewPanel;
     private thinkingHistory: Array<{ content: string; timestamp: number }> = [];
+    private streamPaused: boolean = false;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -42,7 +43,10 @@ export class MonitorPanelProvider {
             if (this.thinkingHistory.length > 50) {
                 this.thinkingHistory.shift();
             }
-            this.refresh();
+            // Only refresh if not paused
+            if (!this.streamPaused) {
+                this.refresh();
+            }
         });
     }
 
@@ -72,6 +76,33 @@ export class MonitorPanelProvider {
                 // Copy proxy command to clipboard
                 vscode.env.clipboard.writeText('ANTHROPIC_BASE_URL=http://localhost:8888 claude');
                 vscode.window.showInformationMessage('Comando copiado para clipboard!');
+                break;
+            case 'toggleStream':
+                this.streamPaused = !this.streamPaused;
+                this.refresh();
+                break;
+            case 'copyThinking':
+                // Copy current thinking to clipboard
+                const lastChunk = this.interceptor.getLastChunk();
+                if (lastChunk) {
+                    vscode.env.clipboard.writeText(lastChunk.content);
+                    vscode.window.showInformationMessage('Thinking copiado para clipboard!');
+                } else {
+                    vscode.window.showWarningMessage('Nenhum thinking para copiar');
+                }
+                break;
+            case 'exportHistory':
+                // Export intervention history
+                const history = this.supervisors.getAlertHistory();
+                if (history.length > 0) {
+                    const content = history.map(h =>
+                        `[${new Date(h.timestamp).toLocaleString()}] ${h.supervisorName}: ${h.message}`
+                    ).join('\n');
+                    vscode.env.clipboard.writeText(content);
+                    vscode.window.showInformationMessage('Histórico exportado para clipboard!');
+                } else {
+                    vscode.window.showWarningMessage('Nenhuma intervenção para exportar');
+                }
                 break;
         }
     }
@@ -437,20 +468,20 @@ export class MonitorPanelProvider {
     </div>
 
     <div class="section">
-        <div class="section-title">THINKING STREAM (ao vivo)</div>
+        <div class="section-title">THINKING STREAM ${this.streamPaused ? '(PAUSADO)' : '(ao vivo)'}</div>
         <div class="thinking-box">
             <div class="thinking-header">
                 <span>🧠 THINKING</span>
-                <span style="color: var(--text-secondary); font-size: 11px;">▼ auto</span>
+                <span style="color: var(--text-secondary); font-size: 11px;">${this.streamPaused ? '⏸️ pausado' : '▼ auto'}</span>
             </div>
             <div class="thinking-content">
 ${lastChunk ? `"${lastChunk.content}"` : 'Aguardando thinking do Claude Code...'}
             </div>
         </div>
         <div class="actions-bar">
-            <button class="btn">⏸️ Pausar stream</button>
+            <button class="btn" onclick="send('toggleStream')">${this.streamPaused ? '▶️ Retomar stream' : '⏸️ Pausar stream'}</button>
             <button class="btn" onclick="send('clearHistory')">🗑️ Limpar</button>
-            <button class="btn">📋 Copiar</button>
+            <button class="btn" onclick="send('copyThinking')">📋 Copiar</button>
         </div>
     </div>
 
@@ -500,7 +531,7 @@ ${lastChunk ? `"${lastChunk.content}"` : 'Aguardando thinking do Claude Code...'
             </div>
         </div>
         <div class="actions-bar">
-            <button class="btn">📤 Exportar histórico</button>
+            <button class="btn" onclick="send('exportHistory')">📤 Exportar histórico</button>
         </div>
     </div>
 

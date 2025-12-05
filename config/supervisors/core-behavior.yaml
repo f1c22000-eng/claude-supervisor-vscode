@@ -1,0 +1,324 @@
+# =====================================================
+# SUPERVISORES CORE - SEMPRE ATIVOS
+# Detectam comportamentos problemáticos do Claude Code
+# NÃO REMOVER - Esses são essenciais para qualidade
+# =====================================================
+
+project: "_core_behavior"
+version: "1.0"
+always_active: true
+load_priority: 1
+
+supervisors:
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 1: DECLARAÇÃO PREMATURA DE CONCLUSÃO
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.Conclusao"
+    type: specialist
+    parent: Comportamento
+    description: "Detecta quando Claude diz 'pronto' sem evidência de teste"
+    keywords:
+      - pronto
+      - feito
+      - terminei
+      - completo
+      - implementado
+      - funcionando
+      - finalizado
+      - concluído
+      - ok
+      - done
+    rules:
+      - id: declaracao-sem-evidencia
+        description: "Não declarar conclusão sem mostrar teste ou output"
+        severity: critical
+        check: |
+          Se o Claude disser que terminou/completou algo, DEVE haver:
+          - Output de compilação (npm run compile)
+          - Log de execução de teste
+          - Screenshot ou descrição de teste manual
+          - Resultado visível da funcionalidade
+        violation_examples:
+          - "Pronto! Implementei a função."
+          - "Feito. O botão agora funciona."
+          - "Terminei todas as correções."
+        valid_examples:
+          - "Implementei a função. Testei com npm run compile: sem erros. Executei F5 e o botão abre o painel corretamente."
+        action: "ALERTAR: Mostre evidência de que funciona (teste, output, log)"
+
+      - id: porcentagem-inflada
+        description: "Não declarar 100% quando não está completo"
+        severity: high
+        check: |
+          Se declarar porcentagem alta (>80%), verificar se:
+          - Todos os itens foram realmente feitos
+          - Não há TODOs no código
+          - Não há funções vazias
+        violation_examples:
+          - "✅ 100% completo" (mas tem 3 TODOs)
+          - "Tudo funcionando" (mas não testou)
+        action: "ALERTAR: Verificar se realmente está completo"
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 2: ANTI-HARDCODE E DADOS FAKE
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.DadosReais"
+    type: specialist
+    parent: Técnico
+    description: "Detecta valores hardcoded que deveriam ser calculados"
+    keywords:
+      - return
+      - const
+      - display
+      - mostrar
+      - exibir
+      - valor
+      - status
+      - count
+      - total
+    rules:
+      - id: numero-magico-display
+        description: "Valores exibidos ao usuário devem ser calculados"
+        severity: high
+        check: |
+          Números em displays/status devem vir de:
+          - Contagem real (array.length)
+          - Cálculo (soma, média)
+          - Estado real do sistema
+          NÃO de constantes hardcoded
+        violation_examples:
+          - "return '7 ativos'"
+          - "return '187ms'"
+          - "const alertas = 3"
+          - "status: '✅ Conectado'" (sem verificar conexão real)
+        action: "ALERTAR: Este valor parece hardcoded. Deve ser calculado."
+
+      - id: placeholder-vazio
+        description: "Funções não devem retornar vazio sem implementação"
+        severity: high
+        check: |
+          Detectar funções que retornam:
+          - return ''
+          - return null
+          - return undefined
+          - // TODO
+          - // FIXME
+          Sem implementação real
+        violation_examples:
+          - "extractPdfText() { return ''; }"
+          - "// TODO: implementar depois"
+        action: "ALERTAR: Função sem implementação real detectada"
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 3: MÍNIMO ESFORÇO
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.EsforcoCompleto"
+    type: specialist
+    parent: Comportamento
+    description: "Detecta quando Claude tenta fazer menos que o pedido"
+    keywords:
+      - simples
+      - simplificado
+      - básico
+      - por enquanto
+      - primeiro
+      - depois
+      - futuramente
+      - eventualmente
+      - versão
+      - começar com
+      - só
+      - apenas
+    rules:
+      - id: reducao-de-escopo
+        description: "Não fazer versão simplificada quando pediu completa"
+        severity: high
+        check: |
+          Se o usuário pediu implementação X, fazer X.
+          Não fazer versão "básica" ou "simplificada" sem pedir.
+        violation_examples:
+          - "Vou fazer uma versão simplificada primeiro"
+          - "Por enquanto, só a parte principal"
+          - "Começando com o básico"
+          - "Depois adiciono o resto"
+        action: "ALERTAR: Você está reduzindo o escopo. Faça o que foi pedido."
+
+      - id: atalho-inadequado
+        description: "Não escolher solução fácil quando difícil foi pedida"
+        severity: high
+        check: |
+          Se pediu solução A (complexa) e existe B (fácil):
+          - Fazer A, não B
+          - Não trocar sem autorização
+        violation_examples:
+          - "Em vez de proxy HTTP, vou criar botão de simulação"
+          - "É mais fácil fazer X, então vou fazer X"
+        action: "ALERTAR: Faça a solução pedida, não a mais fácil"
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 4: TESTE OBRIGATÓRIO
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.Teste"
+    type: specialist
+    parent: Comportamento
+    description: "Exige teste após implementação"
+    keywords:
+      - criar
+      - criei
+      - implementar
+      - implementei
+      - adicionar
+      - adicionei
+      - corrigir
+      - corrigi
+      - modificar
+      - modifiquei
+      - atualizar
+      - atualizei
+    rules:
+      - id: codigo-sem-teste
+        description: "Código novo deve ser testado"
+        severity: critical
+        check: |
+          Após criar/modificar código:
+          1. Deve compilar (npm run compile)
+          2. Deve executar/testar
+          3. Deve mostrar resultado
+        violation_examples:
+          - "Criei o arquivo X.ts" (sem compilar)
+          - "Adicionei a função Y" (sem testar)
+        action: "ALERTAR: Compile e teste antes de continuar"
+
+      - id: correcao-sem-verificacao
+        description: "Correção de bug deve verificar se resolveu"
+        severity: high
+        check: |
+          Após corrigir bug:
+          1. Reproduzir cenário original
+          2. Verificar que bug não ocorre mais
+          3. Mostrar evidência
+        violation_examples:
+          - "Corrigi o bug" (sem testar)
+          - "Agora funciona" (sem mostrar)
+        action: "ALERTAR: Mostre que o bug foi realmente corrigido"
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 5: SINCRONIZAÇÃO DE COMPONENTES
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.Integracao"
+    type: specialist
+    parent: Técnico
+    description: "Verifica se componentes estão conectados"
+    keywords:
+      - componente
+      - painel
+      - panel
+      - sidebar
+      - webview
+      - atualizar
+      - refresh
+      - sincronizar
+      - evento
+      - event
+      - listener
+      - handler
+    rules:
+      - id: componente-isolado
+        description: "Novos componentes devem se comunicar com existentes"
+        severity: high
+        check: |
+          Ao criar componente de UI:
+          - Deve emitir eventos quando estado muda
+          - Deve escutar eventos de outros componentes
+          - Sidebar deve refletir estado dos painéis
+        violation_examples:
+          - "Criei o painel X" (sem conectar ao sidebar)
+          - "Salvei config" (sem notificar outros componentes)
+        action: "ALERTAR: Componente parece isolado. Adicione eventos/listeners."
+
+      - id: handler-vazio
+        description: "Event handlers devem ter implementação"
+        severity: high
+        check: |
+          onClick, onChange, onEvent devem fazer algo real
+          Não apenas: () => {} ou () => console.log()
+        violation_examples:
+          - "onClick={() => {}}"
+          - "onChange={(e) => console.log(e)}"
+        action: "ALERTAR: Handler vazio detectado"
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 6: REQUISITOS IGNORADOS
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.Requisitos"
+    type: specialist
+    parent: Comportamento
+    description: "Detecta quando requisitos são ignorados ou adiados"
+    keywords:
+      - complexo
+      - complicado
+      - difícil
+      - trabalhoso
+      - depois
+      - futuramente
+      - próxima versão
+      - v2
+      - backlog
+      - ignorar
+      - pular
+      - skip
+    rules:
+      - id: requisito-adiado
+        description: "Não adiar requisitos difíceis"
+        severity: high
+        check: |
+          Se pediu requisito X e Claude diz "depois" ou "v2":
+          - É tentativa de pular parte difícil
+          - Deve fazer agora ou explicar impedimento real
+        violation_examples:
+          - "Isso é complexo, deixo para v2"
+          - "Adiciono isso futuramente"
+          - "Por agora vou pular essa parte"
+        action: "ALERTAR: Não adie. Faça agora ou explique impedimento técnico real."
+
+      - id: requisito-esquecido
+        description: "Não esquecer itens de uma lista"
+        severity: high
+        check: |
+          Se pediu lista de N itens, fazer N itens.
+          Contar e verificar.
+        violation_examples:
+          - Pediu 5 funções, fez 3
+          - Pediu corrigir 10 bugs, corrigiu 6
+        action: "ALERTAR: Faltam itens. Verifique a lista original."
+
+  # ─────────────────────────────────────────────────
+  # SUPERVISOR 7: DOCUMENTAÇÃO
+  # ─────────────────────────────────────────────────
+  - name: "Verificador.Documentacao"
+    type: specialist
+    parent: Comportamento
+    description: "Verifica se documentação acompanha código"
+    keywords:
+      - criar
+      - modificar
+      - api
+      - interface
+      - função
+      - parâmetro
+      - breaking
+      - change
+    rules:
+      - id: mudanca-sem-doc
+        description: "Mudanças significativas devem atualizar docs"
+        severity: medium
+        check: |
+          Se mudar:
+          - API pública
+          - Parâmetros de função
+          - Comportamento de feature
+          Deve atualizar README/docs
+        violation_examples:
+          - Mudar assinatura de função sem atualizar JSDoc
+          - Adicionar feature sem documentar
+        action: "ALERTAR: Considere atualizar documentação"

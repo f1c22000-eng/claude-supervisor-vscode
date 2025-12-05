@@ -73,9 +73,11 @@ export interface SupervisorConfig {
     name: string;
     type: SupervisorType;
     parentId?: string;
+    description?: string;
     keywords: string[];
     rules: Rule[];
     enabled: boolean;
+    alwaysActive?: boolean;  // If true, cannot be disabled by user
 }
 
 export interface SupervisorResult {

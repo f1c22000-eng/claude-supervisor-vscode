@@ -102,9 +102,30 @@ Router (raiz)
 │   └── Arquitetura (Specialist)
 ├── Negócio (Coordinator)
 │   └── Validações (Specialist)
-└── Comportamento (Coordinator)
-    └── Completude (Specialist)
+├── Comportamento (Coordinator)  [CORE - sempre ativo]
+│   ├── Verificador.Conclusao    🔒
+│   ├── Verificador.EsforcoCompleto 🔒
+│   ├── Verificador.Teste        🔒
+│   ├── Verificador.Requisitos   🔒
+│   └── Verificador.Documentacao 🔒
+└── Técnico (Coordinator)        [CORE - sempre ativo]
+    ├── Verificador.DadosReais   🔒
+    └── Verificador.Integracao   🔒
 ```
+
+### Supervisores Core (Sempre Ativos) 🔒
+
+Estes supervisores são carregados automaticamente e não podem ser desativados:
+
+| Supervisor | Detecta |
+|------------|---------|
+| Verificador.Conclusao | "Pronto" sem evidência de teste |
+| Verificador.DadosReais | Valores hardcoded que deveriam ser calculados |
+| Verificador.EsforcoCompleto | Redução de escopo ("versão simplificada") |
+| Verificador.Teste | Código sem compilar/testar |
+| Verificador.Integracao | Componentes desconectados |
+| Verificador.Requisitos | Requisitos adiados ou esquecidos |
+| Verificador.Documentacao | Mudanças sem atualizar docs |
 
 Cada supervisor pode ter:
 - **Keywords** - Palavras-chave que ativam o supervisor
