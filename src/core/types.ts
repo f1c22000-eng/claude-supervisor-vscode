@@ -240,7 +240,8 @@ export interface ExtensionConfig {
 export interface ProjectConfig {
     id: string;
     name: string;
-    yamlPath: string;
+    workspacePath: string;  // Absolute path to the workspace folder
+    yamlPath: string;       // Relative path to YAML config file
     supervisors: SupervisorConfig[];
     enabled: boolean;
     lastUpdated: number;
@@ -275,6 +276,10 @@ export interface WebViewState {
     connectionStatus: ConnectionStatus;
     apiStatus: ApiStatus;
     activeTask: Task | null;
+    currentProject: {
+        name: string;
+        supervisorCount: number;
+    } | null;
     supervisorStats: {
         active: number;
         totalRules: number;

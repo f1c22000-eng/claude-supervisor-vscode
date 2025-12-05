@@ -72,6 +72,22 @@ export async function activate(context: vscode.ExtensionContext) {
         await supervisorHierarchy.loadCoreBehaviorSupervisors();
         console.log(`Core behavior supervisors loaded: ${supervisorHierarchy.getAlwaysActiveCount()} always-active`);
 
+        // Load project-specific supervisors for current workspace
+        const currentProject = configManager.getCurrentWorkspaceProject();
+        if (currentProject) {
+            console.log(`[Extension] Detected project for workspace: ${currentProject.name}`);
+            // Load project supervisors
+            for (const supervisor of currentProject.supervisors) {
+                supervisorHierarchy.addSupervisorFromConfig(supervisor);
+            }
+            console.log(`[Extension] Loaded ${currentProject.supervisors.length} supervisors from project "${currentProject.name}"`);
+        } else {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+                console.log(`[Extension] No project configured for workspace: ${workspaceFolder.uri.fsPath}`);
+            }
+        }
+
         // Connect interceptor to supervisor hierarchy
         interceptorManager.on('thinking_chunk', async (chunk: any) => {
             try {

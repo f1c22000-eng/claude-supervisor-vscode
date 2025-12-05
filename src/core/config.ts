@@ -152,8 +152,10 @@ export class ConfigManager {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) return undefined;
 
-        const workspacePath = workspaceFolder.uri.fsPath;
-        return this.getProjects().find(p => p.yamlPath.startsWith(workspacePath));
+        const workspacePath = workspaceFolder.uri.fsPath.toLowerCase();
+        return this.getProjects().find(p =>
+            p.workspacePath && p.workspacePath.toLowerCase() === workspacePath
+        );
     }
 
     /**

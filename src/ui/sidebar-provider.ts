@@ -100,10 +100,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             apiStatus = ApiStatus.INVALID;
         }
 
+        // Get current project for workspace
+        const currentProject = configManager.getCurrentWorkspaceProject();
+
         return {
             connectionStatus: interceptorState.status,
             apiStatus,
             activeTask: task,
+            currentProject: currentProject ? {
+                name: currentProject.name,
+                supervisorCount: currentProject.supervisors.length
+            } : null,
             supervisorStats: {
                 active: supervisorStats.activeNodes,
                 totalRules: supervisorStats.totalRules,
@@ -135,10 +142,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             apiStatus = ApiStatus.INVALID;
         }
 
+        // Get current project for workspace
+        const currentProject = configManager.getCurrentWorkspaceProject();
+
         return {
             connectionStatus: interceptorState.status,
             apiStatus,
             activeTask: task,
+            currentProject: currentProject ? {
+                name: currentProject.name,
+                supervisorCount: currentProject.supervisors.length
+            } : null,
             supervisorStats: {
                 active: supervisorStats.activeNodes,
                 totalRules: supervisorStats.totalRules,
@@ -433,6 +447,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <button class="icon-btn" onclick="send('openHelp')" title="Ajuda">?</button>
         </div>
     </div>
+
+    ${state.currentProject ? `
+    <div style="background: linear-gradient(135deg, #1e3a5f, #2d4a6f); padding: 8px 12px; margin-bottom: 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">📁</span>
+        <div>
+            <div style="font-weight: 600; font-size: 12px;">${state.currentProject.name}</div>
+            <div style="font-size: 10px; color: var(--text-secondary);">${state.currentProject.supervisorCount} supervisores</div>
+        </div>
+    </div>
+    ` : ''}
 
     ${state.apiStatus !== ApiStatus.VALID ? `
     <div class="section" style="background: linear-gradient(135deg, #1a365d, #2d3748); border-color: #4a5568;">

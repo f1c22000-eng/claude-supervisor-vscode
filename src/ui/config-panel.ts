@@ -141,10 +141,21 @@ export class ConfigPanelProvider {
                     }
                 });
                 if (projectName) {
+                    // Get current workspace path
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    const workspacePath = workspaceFolder?.uri.fsPath || '';
+
+                    if (!workspacePath) {
+                        vscode.window.showWarningMessage(
+                            'Nenhuma pasta aberta. O projeto será criado sem associação a workspace.'
+                        );
+                    }
+
                     // Create project config
                     const newProject: ProjectConfig = {
                         id: uuidv4(),
                         name: projectName,
+                        workspacePath: workspacePath,  // Save the workspace path!
                         yamlPath: path.join('config', 'supervisors', `${projectName.toLowerCase()}.yaml`),
                         supervisors: [],
                         enabled: true,
@@ -156,7 +167,7 @@ export class ConfigPanelProvider {
                     console.log(`[ConfigPanel] Projeto criado:`, newProject);
 
                     vscode.window.showInformationMessage(
-                        `Projeto "${projectName}" criado! Use "Importar Documentos" para adicionar supervisores.`
+                        `Projeto "${projectName}" criado para workspace: ${path.basename(workspacePath) || '(nenhum)'}`
                     );
                 }
                 break;
