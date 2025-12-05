@@ -208,18 +208,23 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run package-webpack",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "package": "vsce package",
+    "package-webpack": "webpack --mode production",
+    "watch-webpack": "webpack --mode development --watch"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.106.1",
     "esbuild": "^0.27.1",
+    "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
-    "vsce": "^2.15.0"
+    "vsce": "^2.15.0",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.1",
