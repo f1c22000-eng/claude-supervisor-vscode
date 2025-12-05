@@ -90,7 +90,7 @@ supervisors:
           - "return '7 ativos'"
           - "return '187ms'"
           - "const alertas = 3"
-          - "status: '✅ Conectado'" (sem verificar conexão real)
+          - "status: '✅ Conectado' (sem verificar conexão real)"
         action: "ALERTAR: Este valor parece hardcoded. Deve ser calculado."
 
       - id: placeholder-vazio
@@ -185,8 +185,8 @@ supervisors:
           2. Deve executar/testar
           3. Deve mostrar resultado
         violation_examples:
-          - "Criei o arquivo X.ts" (sem compilar)
-          - "Adicionei a função Y" (sem testar)
+          - "Criei o arquivo X.ts (sem compilar)"
+          - "Adicionei a função Y (sem testar)"
         action: "ALERTAR: Compile e teste antes de continuar"
 
       - id: correcao-sem-verificacao
@@ -198,8 +198,8 @@ supervisors:
           2. Verificar que bug não ocorre mais
           3. Mostrar evidência
         violation_examples:
-          - "Corrigi o bug" (sem testar)
-          - "Agora funciona" (sem mostrar)
+          - "Corrigi o bug (sem testar)"
+          - "Agora funciona (sem mostrar)"
         action: "ALERTAR: Mostre que o bug foi realmente corrigido"
 
   # ─────────────────────────────────────────────────
@@ -232,8 +232,8 @@ supervisors:
           - Deve escutar eventos de outros componentes
           - Sidebar deve refletir estado dos painéis
         violation_examples:
-          - "Criei o painel X" (sem conectar ao sidebar)
-          - "Salvei config" (sem notificar outros componentes)
+          - "Criei o painel X (sem conectar ao sidebar)"
+          - "Salvei config (sem notificar outros componentes)"
         action: "ALERTAR: Componente parece isolado. Adicione eventos/listeners."
 
       - id: handler-vazio
