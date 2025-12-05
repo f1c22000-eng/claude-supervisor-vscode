@@ -1,0 +1,198 @@
+{
+  "name": "claude-supervisor-vscode",
+  "displayName": "Claude Supervisor",
+  "description": "Monitora Claude Code em tempo real, detectando problemas, desvios de escopo e comportamentos indesejados",
+  "version": "1.0.0",
+  "publisher": "claude-supervisor",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "claude",
+    "ai",
+    "supervisor",
+    "anthropic",
+    "code-review"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claude-supervisor",
+          "title": "Claude Supervisor",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "claude-supervisor": [
+        {
+          "type": "webview",
+          "id": "claudeSupervisor.sidebar",
+          "name": "Claude Supervisor"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "claudeSupervisor.toggle",
+        "title": "Claude Supervisor: Toggle"
+      },
+      {
+        "command": "claudeSupervisor.openScope",
+        "title": "Claude Supervisor: Open Scope Manager"
+      },
+      {
+        "command": "claudeSupervisor.openSupervisors",
+        "title": "Claude Supervisor: Open Supervisors"
+      },
+      {
+        "command": "claudeSupervisor.openMonitor",
+        "title": "Claude Supervisor: Open Monitor"
+      },
+      {
+        "command": "claudeSupervisor.openConfig",
+        "title": "Claude Supervisor: Open Configuration"
+      },
+      {
+        "command": "claudeSupervisor.addNote",
+        "title": "Claude Supervisor: Add Note"
+      },
+      {
+        "command": "claudeSupervisor.addRule",
+        "title": "Claude Supervisor: Add Rule"
+      },
+      {
+        "command": "claudeSupervisor.showScope",
+        "title": "Claude Supervisor: Show Scope"
+      },
+      {
+        "command": "claudeSupervisor.importDocs",
+        "title": "Claude Supervisor: Import Documents"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "claudeSupervisor.toggle",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s"
+      },
+      {
+        "command": "claudeSupervisor.addNote",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n"
+      },
+      {
+        "command": "claudeSupervisor.addRule",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "claudeSupervisor.showScope",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Supervisor",
+      "properties": {
+        "claudeSupervisor.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API Key"
+        },
+        "claudeSupervisor.supervisorModel": {
+          "type": "string",
+          "default": "claude-3-5-haiku-20241022",
+          "enum": [
+            "claude-3-5-haiku-20241022",
+            "claude-sonnet-4-20250514"
+          ],
+          "description": "Modelo para supervisores (recomendado: Haiku)"
+        },
+        "claudeSupervisor.configuratorModel": {
+          "type": "string",
+          "default": "claude-sonnet-4-20250514",
+          "enum": [
+            "claude-sonnet-4-20250514",
+            "claude-3-5-haiku-20241022"
+          ],
+          "description": "Modelo para configurador (recomendado: Sonnet)"
+        },
+        "claudeSupervisor.maxCallsPerHour": {
+          "type": "number",
+          "default": 1000,
+          "description": "Máximo de chamadas por hora"
+        },
+        "claudeSupervisor.dailyCostAlert": {
+          "type": "number",
+          "default": 5,
+          "description": "Alerta de custo diário (R$)"
+        },
+        "claudeSupervisor.dailyCostLimit": {
+          "type": "number",
+          "default": 20,
+          "description": "Limite crítico diário (R$)"
+        },
+        "claudeSupervisor.detectScopeReduction": {
+          "type": "boolean",
+          "default": true,
+          "description": "Detectar redução de escopo"
+        },
+        "claudeSupervisor.requireListBeforeRefactor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exigir lista antes de refatoração"
+        },
+        "claudeSupervisor.detectProcrastination": {
+          "type": "boolean",
+          "default": true,
+          "description": "Detectar linguagem de procrastinação"
+        },
+        "claudeSupervisor.verifyCompleteness": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verificar completude no 'pronto'"
+        },
+        "claudeSupervisor.aggressiveMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Modo agressivo (interrompe imediatamente)"
+        },
+        "claudeSupervisor.noteBufferSeconds": {
+          "type": "number",
+          "default": 10,
+          "description": "Buffer de notas em segundos"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.106.1",
+    "esbuild": "^0.27.1",
+    "typescript": "^5.9.3",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.1",
+    "uuid": "^13.0.0",
+    "yaml": "^2.8.2"
+  },
+  "license": "MIT"
+}
