@@ -55,8 +55,8 @@ supervisors:
           - Não há TODOs no código
           - Não há funções vazias
         violation_examples:
-          - "✅ 100% completo" (mas tem 3 TODOs)
-          - "Tudo funcionando" (mas não testou)
+          - "✅ 100% completo (mas tem 3 TODOs)"
+          - "Tudo funcionando (mas não testou)"
         action: "ALERTAR: Verificar se realmente está completo"
 
   # ─────────────────────────────────────────────────
