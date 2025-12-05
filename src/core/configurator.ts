@@ -12,10 +12,11 @@ import { SupervisorConfig, SupervisorType, Rule, Severity, DocumentAnalysis, Imp
 import { ConfigLoader } from '../supervisors/config-loader';
 import { CONFIGURATOR_SYSTEM_PROMPT, RULE_CREATOR_PROMPT } from './configurator-prompt';
 
-// PDF and DOCX parsing libraries
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+// DOCX parsing library (loaded immediately - no side effects)
 import mammoth from 'mammoth';
+
+// PDF parsing - lazy loaded to avoid test file loading issue
+// pdf-parse tries to load a test PDF file on require(), causing ENOENT errors
 
 // ============================================
 // CONFIGURATOR
@@ -342,6 +343,8 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
 
     private async extractPdfText(filePath: string): Promise<string> {
         try {
+            // Lazy load pdf-parse to avoid test file loading issue on require()
+            const pdfParse = (await import('pdf-parse')).default;
             const dataBuffer = fs.readFileSync(filePath);
             const data = await pdfParse(dataBuffer);
             return data.text;
