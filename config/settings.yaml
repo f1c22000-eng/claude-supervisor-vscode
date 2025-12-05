@@ -1,0 +1,31 @@
+# ============================================
+# CLAUDE SUPERVISOR - CONFIGURAÇÕES GERAIS
+# ============================================
+
+# Modo de debug (exibe logs detalhados)
+debug: false
+
+# Intervalo mínimo entre análises (ms)
+analysis_interval: 200
+
+# Tamanho máximo do buffer de thinking (caracteres)
+thinking_buffer_size: 200
+
+# Cache
+cache:
+  # TTL do cache de classificação (ms)
+  classification_ttl: 300000  # 5 minutos
+
+  # TTL do cache de análise (ms)
+  analysis_ttl: 60000  # 1 minuto
+
+# Supervisores padrão ativos
+default_supervisors:
+  - Segurança
+  - Arquitetura
+  - Escopo
+  - Completude
+
+# Projetos ativos (lista de arquivos YAML)
+active_projects:
+  - default.yaml

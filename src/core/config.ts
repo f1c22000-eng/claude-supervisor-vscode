@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { ExtensionConfig, ProjectConfig, SupervisorConfig } from './types';
-import { EXTENSION_ID, MODELS, TIMEOUTS, LIMITS } from './constants';
+import { EXTENSION_ID, MODELS, DEFAULT_MODELS, DEFAULT_MODEL_PRICING, AVAILABLE_MODELS } from './constants';
 
 // ============================================
 // CONFIGURATION MANAGER
@@ -208,6 +208,121 @@ export class ConfigManager {
             valid: errors.length === 0,
             errors
         };
+    }
+
+    // ========================================
+    // MODEL PRICING CONFIGURATION
+    // ========================================
+
+    /**
+     * Get pricing for all models (custom prices override defaults)
+     */
+    public getModelPricing(): Record<string, { input: number; output: number }> {
+        const customPricing = this.getGlobalState<Record<string, { input: number; output: number }>>(
+            'modelPricing',
+            {}
+        );
+
+        // Merge custom pricing with defaults (custom takes precedence)
+        const mergedPricing: Record<string, { input: number; output: number }> = {};
+
+        for (const modelId of Object.keys(DEFAULT_MODEL_PRICING)) {
+            mergedPricing[modelId] = customPricing[modelId] || DEFAULT_MODEL_PRICING[modelId];
+        }
+
+        return mergedPricing;
+    }
+
+    /**
+     * Get pricing for a specific model
+     */
+    public getModelPrice(modelId: string): { input: number; output: number } {
+        const allPricing = this.getModelPricing();
+        return allPricing[modelId] || DEFAULT_MODEL_PRICING[modelId] || { input: 0, output: 0 };
+    }
+
+    /**
+     * Set custom pricing for a model (prices in USD per 1M tokens)
+     */
+    public async setModelPricing(
+        modelId: string,
+        inputPricePerMillion: number,
+        outputPricePerMillion: number
+    ): Promise<void> {
+        const customPricing = this.getGlobalState<Record<string, { input: number; output: number }>>(
+            'modelPricing',
+            {}
+        );
+
+        customPricing[modelId] = {
+            input: inputPricePerMillion / 1_000_000,
+            output: outputPricePerMillion / 1_000_000
+        };
+
+        await this.setGlobalState('modelPricing', customPricing);
+    }
+
+    /**
+     * Reset pricing for a model to defaults
+     */
+    public async resetModelPricing(modelId: string): Promise<void> {
+        const customPricing = this.getGlobalState<Record<string, { input: number; output: number }>>(
+            'modelPricing',
+            {}
+        );
+
+        delete customPricing[modelId];
+        await this.setGlobalState('modelPricing', customPricing);
+    }
+
+    /**
+     * Reset all pricing to defaults
+     */
+    public async resetAllModelPricing(): Promise<void> {
+        await this.setGlobalState('modelPricing', {});
+    }
+
+    // ========================================
+    // MODEL SELECTION CONFIGURATION
+    // ========================================
+
+    /**
+     * Get available models list
+     */
+    public getAvailableModels(): typeof AVAILABLE_MODELS {
+        return AVAILABLE_MODELS;
+    }
+
+    /**
+     * Get selected model for supervisor (fast/cheap)
+     */
+    public getSupervisorModel(): string {
+        return this.getGlobalState<string>('supervisorModel', DEFAULT_MODELS.SUPERVISOR);
+    }
+
+    /**
+     * Set selected model for supervisor
+     */
+    public async setSupervisorModel(modelId: string): Promise<void> {
+        await this.setGlobalState('supervisorModel', modelId);
+        // Also update VS Code config for backwards compatibility
+        await this.updateConfig('supervisorModel', modelId);
+    }
+
+    /**
+     * Get selected model for configurator (smart/detailed)
+     */
+    public getConfiguratorModel(): string {
+        return this.getGlobalState<string>('configuratorModel', DEFAULT_MODELS.CONFIGURATOR);
+    }
+
+    /**
+     * Set selected model for configurator
+     */
+    public async setConfiguratorModel(modelId: string): Promise<void> {
+        await this.setGlobalState('configuratorModel', modelId);
+        // Also update VS Code config for backwards compatibility
+        await this.updateConfig('configuratorModel', modelId);
     }
 }
 

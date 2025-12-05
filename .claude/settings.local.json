@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npm init:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run compile:*)",
+      "Bash(npx vsce:*)",
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run package:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

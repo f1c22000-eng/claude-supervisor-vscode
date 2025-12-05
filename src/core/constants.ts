@@ -40,7 +40,8 @@ export const COMMANDS = {
     ADD_NOTE: 'claudeSupervisor.addNote',
     ADD_RULE: 'claudeSupervisor.addRule',
     SHOW_SCOPE: 'claudeSupervisor.showScope',
-    IMPORT_DOCS: 'claudeSupervisor.importDocs'
+    IMPORT_DOCS: 'claudeSupervisor.importDocs',
+    OPEN_TERMINAL: 'claudeSupervisor.openTerminal'
 };
 
 // ============================================
@@ -48,22 +49,38 @@ export const COMMANDS = {
 // ============================================
 
 export const ANTHROPIC_API_URL = 'https://api.anthropic.com';
+export const ANTHROPIC_PRICING_URL = 'https://www.anthropic.com/pricing';
+export const ANTHROPIC_API_VERSION = '2023-06-01';
 
+// Lista de modelos disponíveis com preços padrão
+export const AVAILABLE_MODELS = [
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', defaultInput: 0.80, defaultOutput: 4.00, recommended: 'supervisor' },
+    { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku (Legacy)', defaultInput: 0.25, defaultOutput: 1.25, recommended: null },
+    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', defaultInput: 3.00, defaultOutput: 15.00, recommended: 'configurator' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', defaultInput: 3.00, defaultOutput: 15.00, recommended: null },
+    { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', defaultInput: 15.00, defaultOutput: 75.00, recommended: null }
+];
+
+// Modelos padrão
+export const DEFAULT_MODELS = {
+    SUPERVISOR: 'claude-3-5-haiku-20241022',
+    CONFIGURATOR: 'claude-sonnet-4-20250514'
+};
+
+// Alias para compatibilidade
 export const MODELS = {
     HAIKU: 'claude-3-5-haiku-20241022',
     SONNET: 'claude-sonnet-4-20250514'
 };
 
-export const MODEL_PRICING = {
-    [MODELS.HAIKU]: {
-        input: 0.25 / 1_000_000,  // $0.25 per 1M tokens
-        output: 1.25 / 1_000_000  // $1.25 per 1M tokens
-    },
-    [MODELS.SONNET]: {
-        input: 3 / 1_000_000,     // $3 per 1M tokens
-        output: 15 / 1_000_000    // $15 per 1M tokens
-    }
-};
+// Preços padrão (fallback se não configurado)
+export const DEFAULT_MODEL_PRICING: Record<string, { input: number; output: number }> = {};
+for (const model of AVAILABLE_MODELS) {
+    DEFAULT_MODEL_PRICING[model.id] = {
+        input: model.defaultInput / 1_000_000,
+        output: model.defaultOutput / 1_000_000
+    };
+}
 
 // Taxa de conversão USD -> BRL (aproximada)
 export const USD_TO_BRL = 5.5;

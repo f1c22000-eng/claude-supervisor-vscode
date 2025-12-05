@@ -1,22 +1,40 @@
 {
   "name": "claude-supervisor-vscode",
   "displayName": "Claude Supervisor",
-  "description": "Monitora Claude Code em tempo real, detectando problemas, desvios de escopo e comportamentos indesejados",
+  "description": "Monitora Claude Code em tempo real, detectando problemas, desvios de escopo e comportamentos indesejados através de uma hierarquia inteligente de supervisores.",
   "version": "1.0.0",
   "publisher": "claude-supervisor",
+  "galleryBanner": {
+    "color": "#1E1E1E",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/f1c22000-eng/claude-supervisor-vscode"
+  },
+  "homepage": "https://github.com/f1c22000-eng/claude-supervisor-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/f1c22000-eng/claude-supervisor-vscode/issues"
+  },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Other",
-    "Machine Learning"
+    "Machine Learning",
+    "Linters"
   ],
   "keywords": [
     "claude",
     "ai",
     "supervisor",
     "anthropic",
-    "code-review"
+    "code-review",
+    "claude-code",
+    "haiku",
+    "sonnet",
+    "monitoring",
+    "scope-management"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -77,6 +95,10 @@
       {
         "command": "claudeSupervisor.importDocs",
         "title": "Claude Supervisor: Import Documents"
+      },
+      {
+        "command": "claudeSupervisor.openTerminal",
+        "title": "Claude Supervisor: Open Terminal"
       }
     ],
     "keybindings": [
@@ -99,6 +121,11 @@
         "command": "claudeSupervisor.showScope",
         "key": "ctrl+shift+e",
         "mac": "cmd+shift+e"
+      },
+      {
+        "command": "claudeSupervisor.openTerminal",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
       }
     ],
     "configuration": {
@@ -191,6 +218,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.1",
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^1.1.1",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
   },

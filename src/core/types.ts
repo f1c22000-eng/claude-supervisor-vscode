@@ -48,6 +48,13 @@ export enum ConnectionStatus {
     ERROR = 'error'
 }
 
+export enum ApiStatus {
+    NOT_CONFIGURED = 'not_configured',
+    INVALID = 'invalid',
+    VALID = 'valid',
+    CHECKING = 'checking'
+}
+
 // ============================================
 // SUPERVISOR INTERFACES
 // ============================================
@@ -263,6 +270,7 @@ export interface WebViewMessage {
 
 export interface WebViewState {
     connectionStatus: ConnectionStatus;
+    apiStatus: ApiStatus;
     activeTask: Task | null;
     supervisorStats: {
         active: number;

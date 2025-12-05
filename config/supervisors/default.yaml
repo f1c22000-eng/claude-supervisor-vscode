@@ -1,0 +1,136 @@
+# ============================================
+# CLAUDE SUPERVISOR - CONFIGURAÇÃO PADRÃO
+# ============================================
+# Este arquivo contém supervisores padrão para
+# regras técnicas comuns.
+
+project: Default
+version: "1.0"
+
+supervisors:
+  # ========================================
+  # SUPERVISOR: SEGURANÇA
+  # ========================================
+  - name: Segurança
+    type: specialist
+    parent: Técnico
+    keywords:
+      - sql
+      - query
+      - database
+      - password
+      - senha
+      - token
+      - auth
+      - api_key
+      - secret
+      - input
+      - sanitize
+    rules:
+      - id: sql-injection
+        description: "Usar prepared statements em queries SQL"
+        severity: critical
+        check: "Verificar se strings são concatenadas diretamente em queries SQL"
+        example_violation: "query = 'SELECT * FROM users WHERE id = ' + userId"
+        enabled: true
+
+      - id: xss-prevention
+        description: "Sanitizar inputs de usuário antes de renderização"
+        severity: high
+        check: "Verificar se inputs são sanitizados antes de inserção em HTML"
+        enabled: true
+
+      - id: password-hashing
+        description: "Nunca armazenar senhas em texto plano"
+        severity: critical
+        check: "Verificar se senhas são hasheadas com bcrypt ou similar"
+        enabled: true
+
+      - id: api-key-exposure
+        description: "Não expor API keys no código"
+        severity: critical
+        check: "Verificar se API keys são usadas diretamente no código"
+        enabled: true
+
+  # ========================================
+  # SUPERVISOR: ARQUITETURA
+  # ========================================
+  - name: Arquitetura
+    type: specialist
+    parent: Técnico
+    keywords:
+      - padrão
+      - pattern
+      - arquitetura
+      - estrutura
+      - módulo
+      - import
+      - export
+      - class
+      - interface
+    rules:
+      - id: circular-dependency
+        description: "Evitar dependências circulares"
+        severity: medium
+        check: "Verificar se módulos importam uns aos outros circularmente"
+        enabled: true
+
+      - id: single-responsibility
+        description: "Classes devem ter responsabilidade única"
+        severity: low
+        check: "Verificar se classes/funções fazem mais de uma coisa"
+        enabled: true
+
+  # ========================================
+  # SUPERVISOR: COMPORTAMENTO - ESCOPO
+  # ========================================
+  - name: Escopo
+    type: specialist
+    parent: Comportamento
+    keywords:
+      - fazer
+      - implementar
+      - criar
+      - só
+      - apenas
+      - depois
+      - por enquanto
+      - primeiro
+    rules:
+      - id: scope-reduction
+        description: "Não reduzir escopo sem autorização"
+        severity: high
+        check: "Detectar frases como 'por enquanto', 'só essa', 'primeiro só'"
+        enabled: true
+
+      - id: procrastination
+        description: "Não adiar tarefas sem necessidade"
+        severity: medium
+        check: "Detectar frases como 'deixo pra depois', 'numa próxima'"
+        enabled: true
+
+  # ========================================
+  # SUPERVISOR: COMPORTAMENTO - COMPLETUDE
+  # ========================================
+  - name: Completude
+    type: specialist
+    parent: Comportamento
+    keywords:
+      - pronto
+      - feito
+      - terminei
+      - completo
+      - todos
+      - todas
+    rules:
+      - id: premature-completion
+        description: "Verificar completude antes de declarar pronto"
+        severity: high
+        check: "Comparar itens concluídos vs itens esperados quando Claude diz 'pronto'"
+        enabled: true
+
+      - id: missing-items
+        description: "Alertar sobre itens faltantes"
+        severity: medium
+        check: "Verificar se todos os itens da lista foram processados"
+        enabled: true

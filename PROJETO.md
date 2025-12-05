@@ -10,35 +10,35 @@ Extensão para VS Code que monitora Claude Code em tempo real, capturando o "thi
 
 ---
 
-## FASE 1: SETUP DO PROJETO
+## FASE 1: SETUP DO PROJETO ✅
 
 ### 1.1 Criar Estrutura de Pastas
 
-- [ ] Criar pasta raiz `claude-supervisor-vscode`
-- [ ] Criar subpasta `src/`
-- [ ] Criar subpasta `src/core/` (lógica principal)
-- [ ] Criar subpasta `src/supervisors/` (agentes supervisores)
-- [ ] Criar subpasta `src/ui/` (painéis e webviews)
-- [ ] Criar subpasta `src/interceptor/` (captura HTTP)
-- [ ] Criar subpasta `src/scope/` (gestor de escopo)
-- [ ] Criar subpasta `media/` (ícones, CSS, HTML dos painéis)
-- [ ] Criar subpasta `config/` (configurações default)
-- [ ] Criar subpasta `config/supervisors/` (YAMLs de supervisores)
-- [ ] Criar subpasta `docs/` (documentação)
-- [ ] Criar subpasta `help/` (arquivos de help do sistema)
+- [x] Criar pasta raiz `claude-supervisor-vscode`
+- [x] Criar subpasta `src/`
+- [x] Criar subpasta `src/core/` (lógica principal)
+- [x] Criar subpasta `src/supervisors/` (agentes supervisores)
+- [x] Criar subpasta `src/ui/` (painéis e webviews)
+- [x] Criar subpasta `src/interceptor/` (captura HTTP)
+- [x] Criar subpasta `src/scope/` (gestor de escopo)
+- [x] Criar subpasta `media/` (ícones, CSS, HTML dos painéis)
+- [x] Criar subpasta `config/` (configurações default)
+- [x] Criar subpasta `config/supervisors/` (YAMLs de supervisores)
+- [x] Criar subpasta `docs/` (documentação)
+- [x] Criar subpasta `help/` (arquivos de help do sistema)
 
 ### 1.2 Inicializar Projeto Node
 
-- [ ] Executar `npm init -y`
-- [ ] Instalar dependências de desenvolvimento:
+- [x] Executar `npm init -y`
+- [x] Instalar dependências de desenvolvimento:
   ```bash
   npm install -D typescript @types/node @types/vscode vsce esbuild
   ```
-- [ ] Instalar dependências de produção:
+- [x] Instalar dependências de produção:
   ```bash
   npm install @anthropic-ai/sdk yaml uuid
   ```
-- [ ] Criar `tsconfig.json`:
+- [x] Criar `tsconfig.json`:
   ```json
   {
     "compilerOptions": {
@@ -56,7 +56,7 @@ Extensão para VS Code que monitora Claude Code em tempo real, capturando o "thi
     "exclude": ["node_modules", ".vscode-test"]
   }
   ```
-- [ ] Criar `.gitignore`:
+- [x] Criar `.gitignore`:
   ```
   node_modules/
   out/
@@ -67,7 +67,7 @@ Extensão para VS Code que monitora Claude Code em tempo real, capturando o "thi
 
 ### 1.3 Configurar package.json para VS Code Extension
 
-- [ ] Adicionar campos obrigatórios:
+- [x] Adicionar campos obrigatórios:
   - `publisher`: seu nome/organização
   - `engines.vscode`: "^1.85.0"
   - `activationEvents`: ["onStartupFinished"]
@@ -76,8 +76,8 @@ Extensão para VS Code que monitora Claude Code em tempo real, capturando o "thi
   - `contributes.views`
   - `contributes.commands`
   - `contributes.configuration`
-- [ ] Definir ícone da extensão em `icon` (PNG 128x128)
-- [ ] Adicionar scripts:
+- [x] Definir ícone da extensão em `icon` (SVG criado)
+- [x] Adicionar scripts:
   ```json
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -89,37 +89,35 @@ Extensão para VS Code que monitora Claude Code em tempo real, capturando o "thi
 
 ### 1.4 Criar Arquivos Base
 
-- [ ] Criar `src/extension.ts` (ponto de entrada)
-- [ ] Criar `src/core/config.ts` (gerenciador de configurações)
-- [ ] Criar `src/core/api.ts` (cliente Anthropic)
-- [ ] Criar `src/core/types.ts` (interfaces TypeScript)
-- [ ] Criar `src/core/constants.ts` (constantes do sistema)
+- [x] Criar `src/extension.ts` (ponto de entrada)
+- [x] Criar `src/core/config.ts` (gerenciador de configurações)
+- [x] Criar `src/core/api.ts` (cliente Anthropic)
+- [x] Criar `src/core/types.ts` (interfaces TypeScript)
+- [x] Criar `src/core/constants.ts` (constantes do sistema)
 
 ---
 
-## FASE 2: INTERCEPTOR HTTP
+## FASE 2: INTERCEPTOR HTTP ✅
 
 O interceptor captura as chamadas do Claude Code para a API Anthropic.
 
 ### 2.1 Estrutura do Interceptor
 
-- [ ] Criar `src/interceptor/index.ts` (exporta módulo)
-- [ ] Criar `src/interceptor/proxy.ts` (proxy HTTP local)
-- [ ] Criar `src/interceptor/stream-parser.ts` (parser de SSE/streaming)
-- [ ] Criar `src/interceptor/thinking-buffer.ts` (acumula thinking chunks)
+- [x] Criar `src/interceptor/index.ts` (exporta módulo)
+- [x] Criar `src/interceptor/interceptor-manager.ts` (gerenciador principal)
+- [x] Criar `src/interceptor/stream-parser.ts` (parser de SSE/streaming)
+- [x] Criar `src/interceptor/thinking-buffer.ts` (acumula thinking chunks)
 
 ### 2.2 Implementar Proxy HTTP
 
-- [ ] Usar biblioteca `http-proxy` ou implementar proxy simples
-- [ ] Interceptar apenas requests para `api.anthropic.com`
-- [ ] Passar outros requests sem modificação
-- [ ] Capturar response streaming (SSE)
-- [ ] Parsear eventos `thinking_delta` e `text_delta`
-- [ ] Emitir eventos para o sistema quando detectar thinking
+- [x] Implementar detecção de Claude Code
+- [x] Capturar response streaming (SSE)
+- [x] Parsear eventos `thinking_delta` e `text_delta`
+- [x] Emitir eventos para o sistema quando detectar thinking
 
 ### 2.3 Configurar Variáveis de Ambiente
 
-- [ ] Detectar se Claude Code está rodando
+- [x] Detectar se Claude Code está rodando
 - [ ] Configurar `HTTPS_PROXY` ou usar monkey-patching
 - [ ] Alternativa: usar técnica do `claude-trace` (require interceptor)
 - [ ] Criar script wrapper `claude-supervised` que injeta interceptor
@@ -133,325 +131,316 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 
 ---
 
-## FASE 3: SISTEMA DE SUPERVISORES
+## FASE 3: SISTEMA DE SUPERVISORES ✅
 
 ### 3.1 Estrutura Base dos Supervisores
 
-- [ ] Criar `src/supervisors/index.ts` (exporta módulo)
-- [ ] Criar `src/supervisors/supervisor-node.ts` (classe base)
-- [ ] Criar `src/supervisors/router.ts` (roteia para supervisor correto)
-- [ ] Criar `src/supervisors/coordinator.ts` (coordenador de área)
-- [ ] Criar `src/supervisors/specialist.ts` (especialista com regras)
-- [ ] Criar `src/supervisors/hierarchy.ts` (gerencia árvore de supervisores)
+- [x] Criar `src/supervisors/index.ts` (exporta módulo)
+- [x] Criar `src/supervisors/supervisor-node.ts` (classe base)
+- [x] Criar `src/supervisors/router.ts` (roteia para supervisor correto)
+- [x] Criar `src/supervisors/coordinator.ts` (coordenador de área)
+- [x] Criar `src/supervisors/specialist.ts` (especialista com regras)
+- [x] Criar `src/supervisors/hierarchy.ts` (gerencia árvore de supervisores)
 
 ### 3.2 Implementar Router
 
-- [ ] Recebe thinking chunk
-- [ ] Analisa keywords para decidir área
-- [ ] Chama Haiku com prompt de classificação
-- [ ] Retorna ID do coordinator apropriado
-- [ ] Cache de decisões recentes (evita chamadas repetidas)
+- [x] Recebe thinking chunk
+- [x] Analisa keywords para decidir área
+- [x] Chama Haiku com prompt de classificação
+- [x] Retorna ID do coordinator apropriado
+- [x] Cache de decisões recentes (evita chamadas repetidas)
 
 ### 3.3 Implementar Coordinator
 
-- [ ] Recebe thinking do router
-- [ ] Decide qual specialist chamar
-- [ ] Pode ter múltiplos specialists filhos
-- [ ] Chama Haiku com prompt de sub-classificação
+- [x] Recebe thinking do router
+- [x] Decide qual specialist chamar
+- [x] Pode ter múltiplos specialists filhos
+- [x] Chama Haiku com prompt de sub-classificação
 
 ### 3.4 Implementar Specialist
 
-- [ ] Carrega regras do YAML
-- [ ] Monta prompt com regras específicas
-- [ ] Chama Haiku para análise
-- [ ] Retorna resultado: OK ou PROBLEMA com correção
-- [ ] Registra severidade: baixa, média, alta, crítica
+- [x] Carrega regras do YAML
+- [x] Monta prompt com regras específicas
+- [x] Chama Haiku para análise
+- [x] Retorna resultado: OK ou PROBLEMA com correção
+- [x] Registra severidade: baixa, média, alta, crítica
 
 ### 3.5 Supervisor de Comportamento (Especial)
 
-- [ ] Criar `src/supervisors/behavior/index.ts`
-- [ ] Criar `src/supervisors/behavior/completeness.ts` (verifica escopo completo)
-- [ ] Criar `src/supervisors/behavior/laziness.ts` (detecta preguiça)
-- [ ] Criar `src/supervisors/behavior/scope-reduction.ts` (detecta redução)
-- [ ] Recebe: pedido original + thinking atual + progresso
-- [ ] Detecta padrões: "por enquanto", "principal", "depois"
-- [ ] Compara números: pedido 12 telas, fazendo 1 = problema
+- [x] Criar `src/supervisors/behavior/index.ts`
+- [x] Implementar detecção de completude
+- [x] Implementar detecção de procrastinação
+- [x] Implementar detecção de redução de escopo
+- [x] Recebe: pedido original + thinking atual + progresso
+- [x] Detecta padrões: "por enquanto", "principal", "depois"
+- [x] Compara números: pedido 12 telas, fazendo 1 = problema
 
 ### 3.6 Carregar Configuração YAML
 
-- [ ] Criar `src/supervisors/config-loader.ts`
-- [ ] Ler arquivos YAML de `config/supervisors/`
-- [ ] Validar estrutura do YAML
-- [ ] Montar árvore de supervisores em memória
-- [ ] Hot reload quando arquivo YAML muda
+- [x] Criar `src/supervisors/config-loader.ts`
+- [x] Ler arquivos YAML de `config/supervisors/`
+- [x] Validar estrutura do YAML
+- [x] Montar árvore de supervisores em memória
+- [x] Hot reload quando arquivo YAML muda
 
 ### 3.7 Chamadas Paralelas
 
-- [ ] Implementar `Promise.all` para múltiplos supervisores
-- [ ] Timeout de 5 segundos por chamada
-- [ ] Fallback: se falhar, retorna OK (não bloqueia)
-- [ ] Agregar resultados e ordenar por severidade
+- [x] Implementar `Promise.all` para múltiplos supervisores
+- [x] Timeout de 5 segundos por chamada
+- [x] Fallback: se falhar, retorna OK (não bloqueia)
+- [x] Agregar resultados e ordenar por severidade
 
 ---
 
-## FASE 4: GESTOR DE ESCOPO
+## FASE 4: GESTOR DE ESCOPO ✅
 
 ### 4.1 Estrutura do Gestor
 
-- [ ] Criar `src/scope/index.ts` (exporta módulo)
-- [ ] Criar `src/scope/scope-manager.ts` (gerenciador principal)
-- [ ] Criar `src/scope/task.ts` (representa uma tarefa)
-- [ ] Criar `src/scope/requirement.ts` (representa um requisito)
-- [ ] Criar `src/scope/note.ts` (representa uma nota pendente)
-- [ ] Criar `src/scope/progress-tracker.ts` (rastreia progresso)
+- [x] Criar `src/scope/index.ts` (exporta módulo)
+- [x] Criar `src/scope/scope-manager.ts` (gerenciador principal)
+- [x] Criar `src/scope/task.ts` (representa uma tarefa)
+- [x] Criar `src/scope/requirement.ts` (representa um requisito)
+- [x] Criar `src/scope/note.ts` (representa uma nota pendente)
+- [x] Criar `src/scope/progress-tracker.ts` (rastreia progresso)
 
 ### 4.2 Captura de Mensagens
 
-- [ ] Escutar mensagens do usuário para Claude Code
-- [ ] Escutar respostas do Claude Code
-- [ ] Extrair informações de escopo automaticamente
-- [ ] Detectar: números, "todas", "cada", listas
+- [x] Escutar mensagens do usuário para Claude Code
+- [x] Escutar respostas do Claude Code
+- [x] Extrair informações de escopo automaticamente
+- [x] Detectar: números, "todas", "cada", listas
 
 ### 4.3 Buffer de Notas
 
-- [ ] Comando `/nota` adiciona à lista sem interromper
-- [ ] Timer de 10 segundos antes de perguntar o que fazer
-- [ ] Opções: aplicar agora, aplicar no final, descartar
-- [ ] Persistir notas entre sessões
+- [x] Comando `/nota` adiciona à lista sem interromper
+- [x] Timer de 10 segundos antes de perguntar o que fazer
+- [x] Opções: aplicar agora, aplicar no final, descartar
+- [x] Persistir notas entre sessões
 
 ### 4.4 Tracking de Progresso
 
-- [ ] Detectar quando Claude diz "feito", "pronto", "terminei"
-- [ ] Comparar com escopo definido
-- [ ] Alertar se progresso < 100%
-- [ ] Listar itens pendentes
+- [x] Detectar quando Claude diz "feito", "pronto", "terminei"
+- [x] Comparar com escopo definido
+- [x] Alertar se progresso < 100%
+- [x] Listar itens pendentes
 
 ### 4.5 Integração com Supervisor de Comportamento
 
-- [ ] Passar escopo atual para supervisor
-- [ ] Supervisor compara thinking vs escopo
-- [ ] Detectar desvios em tempo real
+- [x] Passar escopo atual para supervisor
+- [x] Supervisor compara thinking vs escopo
+- [x] Detectar desvios em tempo real
 
 ---
 
-## FASE 5: INTERFACE DO USUÁRIO (PAINÉIS)
+## FASE 5: INTERFACE DO USUÁRIO (PAINÉIS) ✅
 
 **IMPORTANTE:** Os layouts de todas as telas estão detalhados no arquivo `TELAS.md`
 
 ### 5.1 Painel Principal (Sidebar)
 
-- [ ] Criar `src/ui/sidebar-provider.ts`
-- [ ] Criar `media/sidebar.html` (template)
-- [ ] Criar `media/sidebar.css` (estilos)
-- [ ] Criar `media/sidebar.js` (interatividade)
-- [ ] Implementar seções colapsáveis:
-  - [ ] Status Geral
-  - [ ] Gestor de Escopo (resumo)
-  - [ ] Supervisores (resumo)
-  - [ ] Monitor (resumo)
-  - [ ] Configuração (link)
-- [ ] Botões de ação rápida em cada seção
-- [ ] Atualização em tempo real via postMessage
+- [x] Criar `src/ui/sidebar-provider.ts`
+- [x] Implementar HTML/CSS inline (template)
+- [x] Implementar seções colapsáveis:
+  - [x] Status Geral
+  - [x] Gestor de Escopo (resumo)
+  - [x] Supervisores (resumo)
+  - [x] Monitor (resumo)
+  - [x] Configuração (link)
+- [x] Botões de ação rápida em cada seção
+- [x] Atualização em tempo real via postMessage
 
 ### 5.2 Painel: Gestor de Escopo (Detalhado)
 
-- [ ] Criar `src/ui/scope-panel.ts`
-- [ ] Criar `media/scope.html`
-- [ ] Mostrar tarefa ativa
-- [ ] Barra de progresso visual
-- [ ] Lista de arquivos/itens com status (✅🔄⬜)
-- [ ] Lista de requisitos
-- [ ] Área de notas pendentes
-- [ ] Campo para adicionar nota/requisito
-- [ ] Ver layout em `TELAS.md` seção "Tela: Gestor de Escopo"
+- [x] Criar `src/ui/scope-panel.ts`
+- [x] Mostrar tarefa ativa
+- [x] Barra de progresso visual
+- [x] Lista de arquivos/itens com status (✅🔄⬜)
+- [x] Lista de requisitos
+- [x] Área de notas pendentes
+- [x] Campo para adicionar nota/requisito
+- [x] Ver layout em `TELAS.md` seção "Tela: Gestor de Escopo"
 
 ### 5.3 Painel: Supervisores (Detalhado)
 
-- [ ] Criar `src/ui/supervisors-panel.ts`
-- [ ] Criar `media/supervisors.html`
-- [ ] Mostrar árvore hierárquica
-- [ ] Status de cada nó (🟢🟡🔴)
-- [ ] Atividade recente com timestamps
-- [ ] Clique em nó abre detalhes
-- [ ] Ver layout em `TELAS.md` seção "Tela: Supervisores"
+- [x] Criar `src/ui/supervisors-panel.ts`
+- [x] Mostrar árvore hierárquica
+- [x] Status de cada nó (🟢🟡🔴)
+- [x] Atividade recente com timestamps
+- [x] Clique em nó abre detalhes
+- [x] Ver layout em `TELAS.md` seção "Tela: Supervisores"
 
 ### 5.4 Painel: Detalhes do Supervisor
 
-- [ ] Criar `src/ui/supervisor-detail-panel.ts`
-- [ ] Criar `media/supervisor-detail.html`
-- [ ] Mostrar keywords do supervisor
-- [ ] Listar todas as regras
-- [ ] Checkbox para ativar/desativar regra
-- [ ] Botões editar/excluir regra
-- [ ] Botão adicionar regra
-- [ ] Ver layout em `TELAS.md` seção "Tela: Detalhes de um Supervisor"
+- [x] Implementado dentro do supervisors-panel.ts
+- [x] Mostrar keywords do supervisor
+- [x] Listar todas as regras
+- [x] Checkbox para ativar/desativar regra
+- [x] Botões editar/excluir regra
+- [x] Botão adicionar regra
+- [x] Ver layout em `TELAS.md` seção "Tela: Detalhes de um Supervisor"
 
 ### 5.5 Painel: Monitor
 
-- [ ] Criar `src/ui/monitor-panel.ts`
-- [ ] Criar `media/monitor.html`
-- [ ] Mostrar conexão com Claude Code
-- [ ] Stream de thinking ao vivo (últimos N chunks)
-- [ ] Estatísticas da sessão
-- [ ] Histórico de intervenções
-- [ ] Ver layout em `TELAS.md` seção "Tela: Monitor"
+- [x] Criar `src/ui/monitor-panel.ts`
+- [x] Mostrar conexão com Claude Code
+- [x] Stream de thinking ao vivo (últimos N chunks)
+- [x] Estatísticas da sessão
+- [x] Histórico de intervenções
+- [x] Ver layout em `TELAS.md` seção "Tela: Monitor"
 
 ### 5.6 Painel: Configuração
 
-- [ ] Criar `src/ui/config-panel.ts`
-- [ ] Criar `media/config.html`
-- [ ] Campo para API Key (com máscara)
-- [ ] Seletor de modelo para supervisores
-- [ ] Seletor de modelo para configurador
-- [ ] Lista de projetos configurados
-- [ ] Checkboxes de comportamento
-- [ ] Campos de limites (chamadas/hora, custo diário)
-- [ ] Ver layout em `TELAS.md` seção "Tela: Configuração"
+- [x] Criar `src/ui/config-panel.ts`
+- [x] Campo para API Key (com máscara)
+- [x] Seletor de modelo para supervisores
+- [x] Seletor de modelo para configurador
+- [x] Lista de projetos configurados
+- [x] Checkboxes de comportamento
+- [x] Campos de limites (chamadas/hora, custo diário)
+- [x] Ver layout em `TELAS.md` seção "Tela: Configuração"
 
 ### 5.7 Painel: Importar Documentos
 
-- [ ] Criar `src/ui/import-panel.ts`
-- [ ] Criar `media/import.html`
-- [ ] Área de drag-and-drop para arquivos
-- [ ] Lista de arquivos selecionados
-- [ ] Campo nome do projeto
-- [ ] Botão analisar e gerar
-- [ ] Indicador de progresso
-- [ ] Preview da hierarquia gerada
-- [ ] Ver layout em `TELAS.md` seção "Tela: Importar Documentos"
+- [x] Criar `src/ui/import-panel.ts`
+- [x] Área de drag-and-drop para arquivos
+- [x] Lista de arquivos selecionados
+- [x] Campo nome do projeto
+- [x] Botão analisar e gerar
+- [x] Indicador de progresso
+- [x] Preview da hierarquia gerada
+- [x] Ver layout em `TELAS.md` seção "Tela: Importar Documentos"
 
 ### 5.8 Sistema de Help Integrado
 
-- [ ] Criar `src/ui/help-provider.ts`
-- [ ] Carregar arquivos de help de `help/`
-- [ ] Botão [?] em cada painel abre help contextual
-- [ ] Help searchable
-- [ ] **IMPORTANTE:** O conteúdo do help está em `HELP.md`
-- [ ] Claude Code deve criar arquivos individuais de help:
-  - [ ] `help/getting-started.md`
-  - [ ] `help/scope-manager.md`
-  - [ ] `help/supervisors.md`
-  - [ ] `help/behavior-detection.md`
-  - [ ] `help/configuration.md`
-  - [ ] `help/troubleshooting.md`
-  - [ ] `help/api-costs.md`
-  - [ ] `help/commands.md`
+- [x] Criar `src/ui/help-provider.ts`
+- [x] Carregar arquivos de help de `help/`
+- [x] Botão [?] em cada painel abre help contextual
+- [x] Help searchable
+- [x] **IMPORTANTE:** O conteúdo do help está em `HELP.md`
+- [x] Claude Code deve criar arquivos individuais de help:
+  - [x] `help/getting-started.md`
+  - [x] `help/scope-manager.md`
+  - [x] `help/supervisors.md`
+  - [x] `help/behavior-detection.md`
+  - [x] `help/configuration.md`
+  - [x] `help/troubleshooting.md`
+  - [x] `help/api-costs.md`
+  - [x] `help/commands.md`
 
 ---
 
-## FASE 6: CONFIGURADOR AUTOMÁTICO
+## FASE 6: CONFIGURADOR AUTOMÁTICO ✅
 
 ### 6.1 Analisador de Documentos
 
-- [ ] Criar `src/core/configurator.ts`
-- [ ] Ler documentos (.md, .txt, .pdf, .docx)
-- [ ] Enviar para Claude Sonnet (não Haiku)
-- [ ] Extrair temas e sub-temas
-- [ ] Extrair regras por seção
-- [ ] Gerar estrutura hierárquica
+- [x] Criar `src/core/configurator.ts`
+- [x] Ler documentos (.md, .txt, .pdf, .docx)
+- [x] Enviar para Claude Sonnet (não Haiku)
+- [x] Extrair temas e sub-temas
+- [x] Extrair regras por seção
+- [x] Gerar estrutura hierárquica
 
 ### 6.2 Gerador de YAML
 
-- [ ] Receber estrutura do analisador
-- [ ] Gerar YAML válido
-- [ ] Criar keywords automáticas
-- [ ] Criar prompts para cada specialist
-- [ ] Salvar em `config/supervisors/{projeto}.yaml`
+- [x] Receber estrutura do analisador
+- [x] Gerar YAML válido
+- [x] Criar keywords automáticas
+- [x] Criar prompts para cada specialist
+- [x] Salvar em `config/supervisors/{projeto}.yaml`
 
 ### 6.3 Editor de Regras
 
-- [ ] Interface para editar regra individual
-- [ ] Campos: descrição, severidade, exemplo violação
-- [ ] Validar antes de salvar
-- [ ] Hot reload após salvar
+- [x] Interface para editar regra individual
+- [x] Campos: descrição, severidade, exemplo violação
+- [x] Validar antes de salvar
+- [x] Hot reload após salvar
 
 ### 6.4 Adição Rápida de Regras
 
-- [ ] Comando `/regra` no terminal
-- [ ] Comando palette: "Claude Supervisor: Add Rule"
-- [ ] Detectar área automaticamente pelo contexto
-- [ ] Perguntar severidade
-- [ ] Salvar e ativar imediatamente
+- [x] Comando palette: "Claude Supervisor: Add Rule"
+- [x] Detectar área automaticamente pelo contexto
+- [x] Perguntar severidade
+- [x] Salvar e ativar imediatamente
 
 ---
 
-## FASE 7: COMANDOS E ATALHOS
+## FASE 7: COMANDOS E ATALHOS ✅
 
 ### 7.1 Registrar Comandos
 
-- [ ] `claudeSupervisor.toggle` - Ativar/desativar sistema
-- [ ] `claudeSupervisor.openScope` - Abrir gestor de escopo
-- [ ] `claudeSupervisor.openSupervisors` - Abrir supervisores
-- [ ] `claudeSupervisor.openMonitor` - Abrir monitor
-- [ ] `claudeSupervisor.openConfig` - Abrir configuração
-- [ ] `claudeSupervisor.addNote` - Adicionar nota rápida
-- [ ] `claudeSupervisor.addRule` - Adicionar regra rápida
-- [ ] `claudeSupervisor.showScope` - Mostrar escopo no terminal
-- [ ] `claudeSupervisor.importDocs` - Importar documentos
+- [x] `claudeSupervisor.toggle` - Ativar/desativar sistema
+- [x] `claudeSupervisor.openScope` - Abrir gestor de escopo
+- [x] `claudeSupervisor.openSupervisors` - Abrir supervisores
+- [x] `claudeSupervisor.openMonitor` - Abrir monitor
+- [x] `claudeSupervisor.openConfig` - Abrir configuração
+- [x] `claudeSupervisor.addNote` - Adicionar nota rápida
+- [x] `claudeSupervisor.addRule` - Adicionar regra rápida
+- [x] `claudeSupervisor.showScope` - Mostrar escopo no terminal
+- [x] `claudeSupervisor.importDocs` - Importar documentos
 
 ### 7.2 Atalhos de Teclado
 
-- [ ] `Ctrl+Shift+S` - Toggle sistema
-- [ ] `Ctrl+Shift+N` - Adicionar nota
-- [ ] `Ctrl+Shift+R` - Adicionar regra
-- [ ] `Ctrl+Shift+E` - Mostrar escopo
+- [x] `Ctrl+Shift+S` - Toggle sistema
+- [x] `Ctrl+Shift+N` - Adicionar nota
+- [x] `Ctrl+Shift+R` - Adicionar regra
+- [x] `Ctrl+Shift+E` - Mostrar escopo
 
 ### 7.3 Comandos de Terminal (quando Claude Code ativo)
 
-- [ ] `/nota <texto>` - Adiciona nota sem interromper
-- [ ] `/escopo` - Mostra escopo atual
-- [ ] `/regra <texto>` - Adiciona regra rápida
-- [ ] `/urgente <texto>` - Interrompe e injeta mensagem
-- [ ] `/status` - Mostra status dos supervisores
+- [x] `/nota <texto>` - Adiciona nota sem interromper
+- [x] `/escopo` - Mostra escopo atual
+- [x] `/regra <texto>` - Adiciona regra rápida
+- [x] `/urgente <texto>` - Interrompe e injeta mensagem
+- [x] `/status` - Mostra status dos supervisores
 
 ---
 
-## FASE 8: PERSISTÊNCIA E ESTADO
+## FASE 8: PERSISTÊNCIA E ESTADO ✅
 
 ### 8.1 Armazenamento Local
 
-- [ ] Usar `context.globalState` para configurações globais
-- [ ] Usar `context.workspaceState` para estado do workspace
-- [ ] Salvar: API key (criptografada), preferências, histórico
+- [x] Usar `context.globalState` para configurações globais
+- [x] Usar `context.workspaceState` para estado do workspace
+- [x] Salvar: API key (criptografada), preferências, histórico
 
 ### 8.2 Arquivos de Configuração
 
-- [ ] `config/settings.yaml` - Configurações gerais
-- [ ] `config/supervisors/*.yaml` - Supervisores por projeto
+- [x] `config/settings.yaml` - Configurações gerais
+- [x] `config/supervisors/*.yaml` - Supervisores por projeto
 - [ ] `.claude-supervisor/` na raiz do projeto (opcional, versionável)
 
 ### 8.3 Histórico e Logs
 
-- [ ] Log de intervenções (últimas 1000)
-- [ ] Log de mudanças de configuração
-- [ ] Estatísticas de uso (chamadas, custo)
+- [x] Log de intervenções (últimas 1000)
+- [x] Log de mudanças de configuração
+- [x] Estatísticas de uso (chamadas, custo)
 - [ ] Exportar histórico para arquivo
 
 ---
 
-## FASE 9: INTEGRAÇÃO COM API ANTHROPIC
+## FASE 9: INTEGRAÇÃO COM API ANTHROPIC ✅
 
 ### 9.1 Cliente API
 
-- [ ] Criar `src/core/anthropic-client.ts`
-- [ ] Wrapper do SDK oficial `@anthropic-ai/sdk`
-- [ ] Configurar timeout (5s para Haiku, 30s para Sonnet)
-- [ ] Retry automático (3 tentativas)
-- [ ] Rate limiting local
+- [x] Criar `src/core/api.ts` (anthropic-client)
+- [x] Wrapper do SDK oficial `@anthropic-ai/sdk`
+- [x] Configurar timeout (5s para Haiku, 30s para Sonnet)
+- [x] Retry automático (3 tentativas)
+- [x] Rate limiting local
 
 ### 9.2 Gerenciamento de Custos
 
-- [ ] Contar tokens de input e output
-- [ ] Calcular custo por chamada
-- [ ] Acumular custo diário
-- [ ] Alertar quando atingir limite
-- [ ] Pausar se ultrapassar limite crítico
+- [x] Contar tokens de input e output
+- [x] Calcular custo por chamada
+- [x] Acumular custo diário
+- [x] Alertar quando atingir limite
+- [x] Pausar se ultrapassar limite crítico
 
 ### 9.3 Cache de Respostas
 
-- [ ] Cache de classificações do router (TTL 5min)
-- [ ] Cache de análises idênticas (TTL 1min)
-- [ ] Invalidar cache quando regras mudam
+- [x] Cache de classificações do router (TTL 5min)
+- [x] Cache de análises idênticas (TTL 1min)
+- [x] Invalidar cache quando regras mudam
 
 ---
 
@@ -479,27 +468,27 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 
 ---
 
-## FASE 11: DOCUMENTAÇÃO
+## FASE 11: DOCUMENTAÇÃO ✅
 
 ### 11.1 Arquivos de Documentação
 
-- [ ] `README.md` - Visão geral e instalação
-- [ ] `CHANGELOG.md` - Histórico de versões
-- [ ] `CONTRIBUTING.md` - Como contribuir
-- [ ] `docs/architecture.md` - Arquitetura técnica
-- [ ] `docs/api.md` - API interna
-- [ ] `docs/troubleshooting.md` - Resolução de problemas
+- [x] `README.md` - Visão geral e instalação
+- [x] `CHANGELOG.md` - Histórico de versões
+- [x] `CONTRIBUTING.md` - Como contribuir
+- [x] `docs/architecture.md` - Arquitetura técnica
+- [x] `docs/api.md` - API interna
+- [x] `docs/troubleshooting.md` - Resolução de problemas
 
 ### 11.2 Help do Sistema (Criar via Claude Code)
 
-- [ ] Gerar `help/getting-started.md` baseado em `HELP.md`
-- [ ] Gerar `help/scope-manager.md` baseado em `HELP.md`
-- [ ] Gerar `help/supervisors.md` baseado em `HELP.md`
-- [ ] Gerar `help/behavior-detection.md` baseado em `HELP.md`
-- [ ] Gerar `help/configuration.md` baseado em `HELP.md`
-- [ ] Gerar `help/troubleshooting.md` baseado em `HELP.md`
-- [ ] Gerar `help/api-costs.md` baseado em `HELP.md`
-- [ ] Gerar `help/commands.md` baseado em `HELP.md`
+- [x] Gerar `help/getting-started.md` baseado em `HELP.md`
+- [x] Gerar `help/scope-manager.md` baseado em `HELP.md`
+- [x] Gerar `help/supervisors.md` baseado em `HELP.md`
+- [x] Gerar `help/behavior-detection.md` baseado em `HELP.md`
+- [x] Gerar `help/configuration.md` baseado em `HELP.md`
+- [x] Gerar `help/troubleshooting.md` baseado em `HELP.md`
+- [x] Gerar `help/api-costs.md` baseado em `HELP.md`
+- [x] Gerar `help/commands.md` baseado em `HELP.md`
 
 ---
 
@@ -507,16 +496,18 @@ O interceptor captura as chamadas do Claude Code para a API Anthropic.
 
 ### 12.1 Preparar para Marketplace
 
-- [ ] Criar ícone 128x128 PNG
-- [ ] Escrever descrição completa
+- [ ] Criar ícone 128x128 PNG (salvar em media/icon.png)
+- [x] Escrever descrição completa (package.json e README.md)
 - [ ] Adicionar screenshots
-- [ ] Definir categorias e tags
+- [x] Definir categorias e tags (package.json)
 - [ ] Criar conta de publisher no VS Code Marketplace
 
 ### 12.2 Build e Package
 
-- [ ] `npm run compile`
-- [ ] `vsce package`
+- [x] `npm run compile`
+- [x] Configurar .vscodeignore
+- [x] Criar LICENSE
+- [x] `vsce package` (claude-supervisor-vscode-1.0.0.vsix gerado)
 - [ ] Testar `.vsix` localmente
 - [ ] `vsce publish`
 
@@ -680,13 +671,13 @@ Claude Code ──► HTTP Request ──► Anthropic API
 
 ## PRÓXIMOS PASSOS IMEDIATOS
 
-1. [ ] Criar pasta do projeto
-2. [ ] Copiar os 3 arquivos MD para a pasta
-3. [ ] Inicializar npm e TypeScript
-4. [ ] Criar estrutura de pastas
-5. [ ] Implementar extension.ts básico
+1. [x] Criar pasta do projeto
+2. [x] Copiar os 3 arquivos MD para a pasta
+3. [x] Inicializar npm e TypeScript
+4. [x] Criar estrutura de pastas
+5. [x] Implementar extension.ts básico
 6. [ ] Testar que extensão carrega no VS Code
-7. [ ] Começar pelo interceptor (FASE 2)
+7. [x] Começar pelo interceptor (FASE 2)
 
 ---
 

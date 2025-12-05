@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import * as vscode from 'vscode';
 import { configManager } from './config';
 import { ApiUsage, ApiStats, Severity } from './types';
-import { MODELS, MODEL_PRICING, USD_TO_BRL, TIMEOUTS, LIMITS } from './constants';
+import { TIMEOUTS, LIMITS, DEFAULT_MODEL_PRICING, USD_TO_BRL } from './constants';
 
 // ============================================
 // API CLIENT
@@ -72,7 +72,8 @@ export class AnthropicClient {
         userMessage: string,
         maxTokens: number = 200
     ): Promise<string | null> {
-        return this.callModel(MODELS.HAIKU, systemPrompt, userMessage, maxTokens, TIMEOUTS.HAIKU_REQUEST);
+        const model = configManager.getSupervisorModel();
+        return this.callModel(model, systemPrompt, userMessage, maxTokens, TIMEOUTS.HAIKU_REQUEST);
     }
 
     public async callSonnet(
@@ -80,7 +81,8 @@ export class AnthropicClient {
         userMessage: string,
         maxTokens: number = 2000
     ): Promise<string | null> {
-        return this.callModel(MODELS.SONNET, systemPrompt, userMessage, maxTokens, TIMEOUTS.SONNET_REQUEST);
+        const model = configManager.getConfiguratorModel();
+        return this.callModel(model, systemPrompt, userMessage, maxTokens, TIMEOUTS.SONNET_REQUEST);
     }
 
     private async callModel(
@@ -269,7 +271,7 @@ Responda em JSON:
     // ========================================
 
     private updateStats(model: string, usage: { input_tokens: number; output_tokens: number }): void {
-        const pricing = MODEL_PRICING[model] || MODEL_PRICING[MODELS.HAIKU];
+        const pricing = configManager.getModelPrice(model);
         const cost = (usage.input_tokens * pricing.input) + (usage.output_tokens * pricing.output);
 
         // Update session stats
@@ -339,24 +341,46 @@ Responda em JSON:
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    public async validateApiKey(apiKey: string): Promise<boolean> {
+    public async validateApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
         try {
             const testClient = new Anthropic({ apiKey });
 
             // Make a minimal request to validate the key
-            const response = await testClient.messages.create({
-                model: MODELS.HAIKU,
+            await testClient.messages.create({
+                model: configManager.getSupervisorModel(),
                 max_tokens: 10,
                 messages: [{ role: 'user', content: 'test' }]
             });
 
-            return true;
+            return { valid: true };
         } catch (error: any) {
+            // HTTP 401 - Unauthorized (invalid key)
             if (error.status === 401) {
-                return false;
+                return { valid: false, error: 'API Key inválida. Verifique se a key está correta.' };
             }
-            // Other errors might be rate limits, etc., key might still be valid
-            return true;
+
+            // HTTP 403 - Forbidden (key disabled or no permissions)
+            if (error.status === 403) {
+                return { valid: false, error: 'API Key sem permissões ou desativada.' };
+            }
+
+            // HTTP 429 - Rate limit (key is valid but rate limited)
+            if (error.status === 429) {
+                return { valid: true }; // Key is valid, just rate limited
+            }
+
+            // HTTP 400 - Bad request (key is valid, request was bad)
+            if (error.status === 400) {
+                return { valid: true }; // Key is valid
+            }
+
+            // Network errors
+            if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+                return { valid: false, error: 'Erro de rede. Verifique sua conexão com a internet.' };
+            }
+
+            // Other unknown errors
+            return { valid: false, error: `Erro desconhecido: ${error.message || 'Verifique sua conexão.'}` };
         }
     }
 }
