@@ -149,9 +149,27 @@ export async function activate(context: vscode.ExtensionContext) {
         // Listen for configuration changes
         context.subscriptions.push(
             configManager.onConfigChange(async () => {
-                if (isActive) {
+                // Check if API key is still valid
+                const apiKey = await configManager.getApiKey();
+                const isApiValid = apiKey && apiKey.startsWith('sk-ant-');
+
+                if (!isApiValid) {
+                    // API key was removed or invalidated - stop everything
+                    console.log('API key removed/invalid - stopping system');
+                    anthropicClient.clearClient();
+
+                    if (isActive) {
+                        interceptorManager.stop();
+                        isActive = false;
+                    }
+                    updateStatusBar(ConnectionStatus.DISCONNECTED);
+                } else if (isActive) {
+                    // API key changed but still valid - reinitialize
                     await anthropicClient.initialize();
                 }
+
+                // Always refresh sidebar to reflect changes
+                sidebarProvider.refreshAsync();
             })
         );
 

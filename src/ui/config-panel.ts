@@ -46,16 +46,28 @@ export class ConfigPanelProvider {
     private async handleMessage(message: any): Promise<void> {
         switch (message.command) {
             case 'saveApiKey':
-                await configManager.setApiKey(message.apiKey);
-                // Reinitialize API client with new key
-                await anthropicClient.initialize();
-                const validResult = await anthropicClient.validateApiKey(message.apiKey);
-                if (validResult.valid) {
-                    vscode.window.showInformationMessage('API Key salva e validada!');
+                const newApiKey = message.apiKey?.trim() || '';
+
+                if (!newApiKey) {
+                    // API key is being cleared
+                    await configManager.clearApiKey();
+                    vscode.window.showInformationMessage('API Key removida. Sistema desativado.');
+                } else if (!newApiKey.startsWith('sk-ant-')) {
+                    // Invalid format
+                    await configManager.setApiKey(newApiKey);
+                    vscode.window.showWarningMessage('API Key salva, mas formato inválido (deve começar com sk-ant-)');
                 } else {
-                    vscode.window.showWarningMessage(
-                        `API Key salva, mas: ${validResult.error || 'pode ser inválida'}`
-                    );
+                    // Valid format - save and validate
+                    await configManager.setApiKey(newApiKey);
+                    await anthropicClient.initialize();
+                    const validResult = await anthropicClient.validateApiKey(newApiKey);
+                    if (validResult.valid) {
+                        vscode.window.showInformationMessage('API Key salva e validada!');
+                    } else {
+                        vscode.window.showWarningMessage(
+                            `API Key salva, mas: ${validResult.error || 'pode ser inválida'}`
+                        );
+                    }
                 }
                 break;
             case 'saveConfig':

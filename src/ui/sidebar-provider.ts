@@ -69,10 +69,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     public refresh(): void {
         if (this.view) {
-            this.view.webview.postMessage({
-                command: 'update',
-                data: this.getState()
-            });
+            // Regenerate full HTML to ensure state consistency
+            this.view.webview.html = this.getHtml(this.view.webview);
+        }
+    }
+
+    public async refreshAsync(): Promise<void> {
+        if (this.view) {
+            // Force async refresh with fresh API key check
+            this.view.webview.html = await this.getHtmlAsync(this.view.webview);
         }
     }
 
@@ -82,12 +87,47 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         const supervisorStats = this.managers.supervisors.getStats();
         const apiStats = this.managers.api.getStats();
 
-        // Determine API status
+        // Determine API status - sync version checks config only
         let apiStatus: ApiStatus;
         const config = configManager.getConfig();
         if (!config.apiKey || config.apiKey.trim() === '') {
             apiStatus = ApiStatus.NOT_CONFIGURED;
         } else if (!config.apiKey.startsWith('sk-ant-')) {
+            apiStatus = ApiStatus.INVALID;
+        } else if (this.managers.api.isInitialized()) {
+            apiStatus = ApiStatus.VALID;
+        } else {
+            apiStatus = ApiStatus.INVALID;
+        }
+
+        return {
+            connectionStatus: interceptorState.status,
+            apiStatus,
+            activeTask: task,
+            supervisorStats: {
+                active: supervisorStats.activeNodes,
+                totalRules: supervisorStats.totalRules,
+                lastAnalysis: Date.now(),
+                alertCount: supervisorStats.totalAlerts
+            },
+            apiStats,
+            recentAlerts: []
+        };
+    }
+
+    private async getStateAsync(): Promise<WebViewState> {
+        const interceptorState = this.managers.interceptor.getState();
+        const task = this.managers.scope.getActiveTask();
+        const supervisorStats = this.managers.supervisors.getStats();
+        const apiStats = this.managers.api.getStats();
+
+        // Determine API status - async version checks secrets too
+        let apiStatus: ApiStatus;
+        const apiKey = await configManager.getApiKey();
+
+        if (!apiKey || apiKey.trim() === '') {
+            apiStatus = ApiStatus.NOT_CONFIGURED;
+        } else if (!apiKey.startsWith('sk-ant-')) {
             apiStatus = ApiStatus.INVALID;
         } else if (this.managers.api.isInitialized()) {
             apiStatus = ApiStatus.VALID;
@@ -174,8 +214,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private async getHtmlAsync(webview: vscode.Webview): Promise<string> {
+        const state = await this.getStateAsync();
+        return this.renderHtml(webview, state);
+    }
+
     private getHtml(webview: vscode.Webview): string {
         const state = this.getState();
+        return this.renderHtml(webview, state);
+    }
+
+    private renderHtml(webview: vscode.Webview, state: WebViewState): string {
         const progress = this.managers.scope.getProgress();
         const apiCostBRL = (state.apiStats.today.totalCost * USD_TO_BRL).toFixed(2);
 

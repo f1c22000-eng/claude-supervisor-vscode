@@ -98,6 +98,13 @@ export class AnthropicClient {
             return null;
         }
 
+        // Verify API key is still valid before making call
+        const apiKey = await configManager.getApiKey();
+        if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+            console.error('API key not configured or invalid - skipping API call');
+            return null;
+        }
+
         // Check rate limits
         if (!this.checkRateLimit()) {
             vscode.window.showWarningMessage('Claude Supervisor: Limite de chamadas/hora atingido');
@@ -343,7 +350,23 @@ Se a regra NÃO foi violada, responda: {"violated": false}`;
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    /**
+     * Clear the client when API key is removed
+     */
+    public clearClient(): void {
+        this.client = null;
+    }
+
     public async validateApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+        // Check for empty or invalid format first
+        if (!apiKey || apiKey.trim() === '') {
+            return { valid: false, error: 'API Key não configurada.' };
+        }
+
+        if (!apiKey.startsWith('sk-ant-')) {
+            return { valid: false, error: 'API Key inválida. Deve começar com sk-ant-' };
+        }
+
         try {
             const testClient = new Anthropic({ apiKey });
 
