@@ -88,6 +88,39 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         }
 
+        // Listen for workspace folder changes to reload supervisors automatically
+        context.subscriptions.push(
+            vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+                console.log('[Extension] Workspace folders changed');
+
+                // Clear project-specific supervisors (keep core behavior ones)
+                supervisorHierarchy.clearAllSupervisors();
+                await supervisorHierarchy.loadCoreBehaviorSupervisors();
+                console.log('[Extension] Reloaded core behavior supervisors');
+
+                // Check if new workspace has a configured project
+                const newProject = configManager.getCurrentWorkspaceProject();
+                if (newProject) {
+                    console.log(`[Extension] Loading project for new workspace: ${newProject.name}`);
+                    for (const supervisor of newProject.supervisors) {
+                        supervisorHierarchy.addSupervisorFromConfig(supervisor);
+                    }
+                    console.log(`[Extension] Loaded ${newProject.supervisors.length} supervisors from project "${newProject.name}"`);
+                    vscode.window.showInformationMessage(
+                        `Projeto "${newProject.name}" carregado com ${newProject.supervisors.length} supervisores`
+                    );
+                } else {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    if (workspaceFolder) {
+                        console.log(`[Extension] No project configured for new workspace: ${workspaceFolder.uri.fsPath}`);
+                        vscode.window.showInformationMessage(
+                            'Nenhum projeto configurado para este workspace. Clique em "Novo Projeto" para criar.'
+                        );
+                    }
+                }
+            })
+        );
+
         // Connect interceptor to supervisor hierarchy
         interceptorManager.on('thinking_chunk', async (chunk: any) => {
             try {
