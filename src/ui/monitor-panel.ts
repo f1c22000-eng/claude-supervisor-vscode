@@ -73,8 +73,10 @@ export class MonitorPanelProvider {
                 this.refresh();
                 break;
             case 'copyCommand':
-                // Copy proxy command to clipboard
-                vscode.env.clipboard.writeText('ANTHROPIC_BASE_URL=http://localhost:8888 claude');
+                // Copy proxy command to clipboard with actual port
+                const proxyStatus = this.interceptor.getProxyStatus();
+                const port = proxyStatus.port || 8888;
+                vscode.env.clipboard.writeText(`ANTHROPIC_BASE_URL=http://localhost:${port} claude`);
                 vscode.window.showInformationMessage('Comando copiado para clipboard!');
                 break;
             case 'toggleStream':
@@ -118,6 +120,8 @@ export class MonitorPanelProvider {
         const stats = this.api.getStats();
         const costBRL = (stats.session.totalCost * USD_TO_BRL).toFixed(2);
         const lastChunk = this.interceptor.getLastChunk();
+        const proxyStatus = this.interceptor.getProxyStatus();
+        const proxyPort = proxyStatus.port || 8888;
 
         return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -448,7 +452,7 @@ export class MonitorPanelProvider {
             <div class="proxy-info">
                 <div class="proxy-row">
                     <span>Endereço:</span>
-                    <code>http://localhost:8888</code>
+                    <code>http://localhost:${proxyPort}</code>
                 </div>
                 <div class="proxy-row">
                     <span>Variável:</span>
@@ -460,7 +464,7 @@ export class MonitorPanelProvider {
                     Para conectar o Claude Code ao proxy:
                 </div>
                 <div class="command-box">
-                    <code>ANTHROPIC_BASE_URL=http://localhost:8888 claude</code>
+                    <code>ANTHROPIC_BASE_URL=http://localhost:${proxyPort} claude</code>
                     <button class="btn btn-small" onclick="send('copyCommand')">📋</button>
                 </div>
             </div>

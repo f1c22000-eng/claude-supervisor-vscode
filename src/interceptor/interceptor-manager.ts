@@ -157,17 +157,22 @@ export class InterceptorManager extends EventEmitter {
                 this.startStatsTimer();
                 this.emit('status_change', this.state.status);
 
+                // Get the actual port the proxy is running on
+                const actualPort = this.proxyServer.getPort();
+                const proxyCommand = `HTTPS_PROXY=http://localhost:${actualPort} claude`;
+
                 // Show notification with proxy instructions
                 vscode.window.showInformationMessage(
-                    `Claude Supervisor proxy ativo na porta 8888. Execute: HTTPS_PROXY=http://localhost:8888 claude`,
+                    `Claude Supervisor proxy ativo na porta ${actualPort}. Execute: ${proxyCommand}`,
                     'Copiar Comando'
                 ).then(selection => {
                     if (selection === 'Copiar Comando') {
-                        vscode.env.clipboard.writeText('HTTPS_PROXY=http://localhost:8888 claude');
+                        vscode.env.clipboard.writeText(proxyCommand);
                         vscode.window.showInformationMessage('Comando copiado!');
                     }
                 });
 
+                console.log(`Proxy started on 127.0.0.1:${actualPort}`);
                 return true;
             } else {
                 this.state.status = ConnectionStatus.ERROR;

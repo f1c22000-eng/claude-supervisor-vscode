@@ -39,6 +39,8 @@ export class ProxyServer extends EventEmitter {
     private config: ProxyConfig;
     private isRunning: boolean = false;
     private requestCount: number = 0;
+    private actualPort: number = 0;  // The port actually being used
+    private static readonly MAX_PORT_ATTEMPTS = 10;
 
     constructor(config: Partial<ProxyConfig> = {}) {
         super();
@@ -58,6 +60,21 @@ export class ProxyServer extends EventEmitter {
             return true;
         }
 
+        // Try starting on the default port, then try alternatives if in use
+        for (let attempt = 0; attempt < ProxyServer.MAX_PORT_ATTEMPTS; attempt++) {
+            const portToTry = this.config.port + attempt;
+            const success = await this.tryStartOnPort(portToTry);
+            if (success) {
+                this.actualPort = portToTry;
+                return true;
+            }
+        }
+
+        console.error(`[Proxy] Failed to find available port after ${ProxyServer.MAX_PORT_ATTEMPTS} attempts`);
+        return false;
+    }
+
+    private async tryStartOnPort(port: number): Promise<boolean> {
         return new Promise((resolve) => {
             try {
                 this.server = http.createServer((req, res) => {
@@ -66,8 +83,8 @@ export class ProxyServer extends EventEmitter {
 
                 this.server.on('error', (err: NodeJS.ErrnoException) => {
                     if (err.code === 'EADDRINUSE') {
-                        console.error(`[Proxy] Port ${this.config.port} is already in use`);
-                        this.emit('error', new Error(`Port ${this.config.port} is already in use`));
+                        console.log(`[Proxy] Port ${port} in use, trying next...`);
+                        this.server?.close();
                         resolve(false);
                     } else {
                         console.error('[Proxy] Server error:', err);
@@ -76,11 +93,11 @@ export class ProxyServer extends EventEmitter {
                     }
                 });
 
-                this.server.listen(this.config.port, this.config.host, () => {
+                this.server.listen(port, this.config.host, () => {
                     this.isRunning = true;
-                    console.log(`[Proxy] Reverse proxy running on http://${this.config.host}:${this.config.port}`);
+                    console.log(`[Proxy] Reverse proxy running on http://${this.config.host}:${port}`);
                     console.log(`[Proxy] Forwarding to https://${this.config.targetHost}`);
-                    this.emit('started', { port: this.config.port, host: this.config.host });
+                    this.emit('started', { port: port, host: this.config.host });
                     resolve(true);
                 });
 
@@ -90,6 +107,13 @@ export class ProxyServer extends EventEmitter {
                 resolve(false);
             }
         });
+    }
+
+    /**
+     * Get the actual port the proxy is running on
+     */
+    public getPort(): number {
+        return this.actualPort || this.config.port;
     }
 
     public async stop(): Promise<void> {
@@ -111,7 +135,7 @@ export class ProxyServer extends EventEmitter {
     public getStatus(): { running: boolean; port: number; host: string; requestCount: number } {
         return {
             running: this.isRunning,
-            port: this.config.port,
+            port: this.getPort(),  // Return actual port, not config port
             host: this.config.host,
             requestCount: this.requestCount
         };
