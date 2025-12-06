@@ -79,7 +79,7 @@ Regra técnica (segurança):
   "description": "Usar prepared statements para queries SQL",
   "severity": "critical",
   "check": "Verificar se há concatenação de strings em queries SQL. Nunca fazer: query = 'SELECT * FROM users WHERE id = ' + userId",
-  "keywords": ["sql", "query", "select", "insert", "update", "delete", "where"],
+  "keywords": ["sql", "query", "select", "insert", "update", "delete", "where", "banco", "database", "consulta"],
   "violationExample": "const query = 'SELECT * FROM users WHERE id = ' + req.params.id"
 }
 
@@ -90,7 +90,7 @@ Regra técnica (arquitetura):
   "description": "Não fazer chamadas de banco direto nos controllers",
   "severity": "high",
   "check": "Verificar se código de controller acessa repositório/model diretamente. Deve usar service layer.",
-  "keywords": ["controller", "repository", "model", "database", "query"],
+  "keywords": ["controller", "repository", "model", "database", "query", "controlador", "repositório", "banco", "camada", "layer"],
   "violationExample": "class UserController { async getUser(req) { return await UserModel.findById(req.params.id) } }"
 }
 
@@ -101,7 +101,7 @@ Regra de negócio (domínio específico):
   "description": "Estoque nunca pode ficar negativo",
   "severity": "critical",
   "check": "Verificar se há validação de saldo >= quantidade antes de qualquer baixa de estoque",
-  "keywords": ["estoque", "quantidade", "saldo", "baixa", "reserva", "disponível"],
+  "keywords": ["estoque", "stock", "inventory", "quantidade", "quantity", "amount", "saldo", "balance", "baixa", "deduct", "reserva", "reserve", "disponível", "available"],
   "violationExample": "estoque.quantidade -= pedido.quantidade; // Sem verificar se tem saldo"
 }
 
@@ -112,7 +112,7 @@ Regra de comportamento:
   "description": "Completar todos os itens do escopo antes de dizer que terminou",
   "severity": "high",
   "check": "Se foi pedido implementar X itens, verificar se todos estão sendo feitos. Não aceitar 'vou fazer só alguns por enquanto'",
-  "keywords": ["pronto", "terminei", "feito", "concluído", "todos", "cada"],
+  "keywords": ["pronto", "done", "terminei", "finished", "feito", "complete", "concluído", "completed", "todos", "all", "cada", "each", "every"],
   "violationExample": "Thinking: 'Por enquanto vou implementar só 3 das 10 telas pedidas...'"
 }
 
@@ -123,7 +123,23 @@ Regra de comportamento:
 4. Keywords devem ser termos que aparecem no THINKING do Claude, não no código
 5. O check deve ser uma instrução clara para o supervisor Haiku
 6. Se o documento não mencionar algo, não crie regra para isso
-7. Agrupe regras similares no mesmo tema/subtema`;
+7. Agrupe regras similares no mesmo tema/subtema
+
+== IMPORTANTE: KEYWORDS BILÍNGUES ==
+O Claude Code frequentemente pensa em INGLÊS mesmo quando o projeto é em português.
+Para cada keyword, SEMPRE inclua a versão em português E em inglês:
+
+Exemplos de keywords bilíngues:
+- "estoque" → ["estoque", "stock", "inventory"]
+- "validação" → ["validação", "validation", "validate", "check"]
+- "pagamento" → ["pagamento", "payment", "pay", "charge"]
+- "usuário" → ["usuário", "user", "customer"]
+- "quantidade" → ["quantidade", "quantity", "amount", "count"]
+- "pedido" → ["pedido", "order", "request"]
+- "preço" → ["preço", "price", "cost", "value"]
+- "data" → ["data", "date", "datetime", "timestamp"]
+
+Sempre gere keywords em AMBOS os idiomas para garantir detecção!`;
 
 /**
  * System prompt for quick rule creation with Haiku
@@ -152,7 +168,7 @@ Output: {
   "description": "Remover console.log antes de commitar",
   "severity": "medium",
   "check": "Detectar quando Claude está adicionando console.log e não removendo depois",
-  "keywords": ["console.log", "debug", "log", "print"]
+  "keywords": ["console.log", "debug", "log", "print", "depuração", "debugging"]
 }
 
 Input: "Sempre validar inputs do usuário"
@@ -160,8 +176,10 @@ Output: {
   "description": "Validar todos os inputs de usuário antes de processar",
   "severity": "high",
   "check": "Verificar se inputs são validados/sanitizados antes de uso em queries, comandos ou exibição",
-  "keywords": ["input", "req.body", "req.params", "form", "usuario", "sanitizar"]
-}`;
+  "keywords": ["input", "entrada", "req.body", "req.params", "form", "formulário", "user", "usuario", "sanitize", "sanitizar", "validate", "validar"]
+}
+
+IMPORTANTE: Sempre inclua keywords em português E inglês, pois Claude pode pensar em qualquer idioma!`;
 
 /**
  * System prompt for supervisor analysis (used by specialist supervisors)
