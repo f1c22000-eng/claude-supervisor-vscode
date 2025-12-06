@@ -90,12 +90,13 @@ export const USD_TO_BRL = 5.5;
 // ============================================
 
 export const TIMEOUTS = {
-    HAIKU_REQUEST: 5000,      // 5 segundos
-    SONNET_REQUEST: 30000,    // 30 segundos
+    HAIKU_REQUEST: 5000,       // 5 segundos
+    SONNET_REQUEST: 30000,     // 30 segundos
+    DOCUMENT_ANALYSIS: 120000, // 120 segundos (documentos grandes)
     INTERCEPTOR_RECONNECT: 3000,
-    NOTE_BUFFER: 10000,       // 10 segundos (configurável)
-    CACHE_TTL: 300000,        // 5 minutos
-    CACHE_ANALYSIS_TTL: 60000 // 1 minuto
+    NOTE_BUFFER: 10000,        // 10 segundos (configurável)
+    CACHE_TTL: 300000,         // 5 minutos
+    CACHE_ANALYSIS_TTL: 60000  // 1 minuto
 };
 
 export const LIMITS = {

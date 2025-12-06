@@ -86,6 +86,19 @@ export class AnthropicClient {
         return this.callModel(model, systemPrompt, userMessage, maxTokens, TIMEOUTS.SONNET_REQUEST);
     }
 
+    /**
+     * Call Sonnet with extended timeout for document analysis
+     * Documents can be large and take longer to process
+     */
+    public async callSonnetForDocumentAnalysis(
+        systemPrompt: string,
+        userMessage: string,
+        maxTokens: number = 4000
+    ): Promise<string | null> {
+        const model = configManager.getConfiguratorModel();
+        return this.callModel(model, systemPrompt, userMessage, maxTokens, TIMEOUTS.DOCUMENT_ANALYSIS);
+    }
+
     private async callModel(
         model: string,
         systemPrompt: string,
@@ -355,6 +368,222 @@ Se a regra NÃO foi violada, responda: {"violated": false}`;
      */
     public clearClient(): void {
         this.client = null;
+    }
+
+    // ========================================
+    // BATCH API (50% cheaper)
+    // ========================================
+
+    /**
+     * Create a batch for analyzing multiple documents
+     * Uses Anthropic's Message Batches API for 50% cost savings
+     */
+    public async createDocumentBatch(
+        documents: Array<{ id: string; content: string; fileName: string }>,
+        systemPrompt: string
+    ): Promise<{ batchId: string } | null> {
+        if (!this.client) {
+            console.error('Anthropic client not initialized');
+            return null;
+        }
+
+        const model = configManager.getConfiguratorModel();
+
+        // Create batch requests
+        // custom_id must match pattern ^[a-zA-Z0-9_-]{1,64}$
+        const sanitizeCustomId = (id: string): string => {
+            return id
+                .replace(/\.[^.]+$/, '') // Remove file extension
+                .replace(/[^a-zA-Z0-9_-]/g, '_') // Replace invalid chars with _
+                .substring(0, 64); // Max 64 chars
+        };
+
+        const requests = documents.map(doc => ({
+            custom_id: sanitizeCustomId(doc.id),
+            params: {
+                model: model,
+                max_tokens: 4000,
+                system: systemPrompt,
+                messages: [{
+                    role: 'user' as const,
+                    content: `Analise este documento do projeto e extraia regras para supervisão.
+
+Arquivo: ${doc.fileName}
+
+=== CONTEÚDO DO DOCUMENTO ===
+${doc.content.substring(0, 15000)}
+=== FIM DO DOCUMENTO ===
+
+Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`
+                }]
+            }
+        }));
+
+        try {
+            console.log(`[API] Creating batch with ${requests.length} document(s)...`);
+            console.log(`[API] Using model: ${model}`);
+            console.log(`[API] First request custom_id: ${requests[0]?.custom_id}`);
+
+            // The Batch API requires the beta header
+            const batch = await this.client.messages.batches.create(
+                { requests: requests },
+                {
+                    headers: {
+                        'anthropic-beta': 'message-batches-2024-09-24'
+                    }
+                }
+            );
+
+            console.log(`[API] Batch created successfully!`);
+            console.log(`[API] Batch ID: ${batch.id}`);
+            console.log(`[API] Batch status: ${batch.processing_status}`);
+            return { batchId: batch.id };
+        } catch (error: any) {
+            console.error('[API] Failed to create batch:', error);
+            console.error('[API] Error message:', error.message);
+            console.error('[API] Error status:', error.status);
+            console.error('[API] Error body:', JSON.stringify(error.error || error.body || {}, null, 2));
+            return null;
+        }
+    }
+
+    /**
+     * Check batch status and get results when complete
+     */
+    public async getBatchResults(
+        batchId: string,
+        onProgress?: (status: string, progress: number) => void
+    ): Promise<Array<{ customId: string; response: string | null }> | null> {
+        if (!this.client) {
+            return null;
+        }
+
+        const betaHeaders = { headers: { 'anthropic-beta': 'message-batches-2024-09-24' } };
+
+        try {
+            // Poll until batch is complete
+            let batch = await this.client.messages.batches.retrieve(batchId, betaHeaders);
+            let pollCount = 0;
+            const maxPolls = 120; // 10 minutes max (5s * 120)
+
+            while (batch.processing_status === 'in_progress' && pollCount < maxPolls) {
+                const requestsDone = (batch.request_counts.succeeded || 0) +
+                                    (batch.request_counts.errored || 0) +
+                                    (batch.request_counts.expired || 0) +
+                                    (batch.request_counts.canceled || 0);
+                const totalRequests = batch.request_counts.processing + requestsDone;
+                const progress = totalRequests > 0 ? Math.round((requestsDone / totalRequests) * 100) : 0;
+
+                onProgress?.(`Processando batch... (${requestsDone}/${totalRequests})`, progress);
+
+                await this.delay(5000); // Wait 5 seconds between polls
+                batch = await this.client.messages.batches.retrieve(batchId, betaHeaders);
+                pollCount++;
+            }
+
+            if (batch.processing_status !== 'ended') {
+                console.warn(`[API] Batch ${batchId} did not complete in time. Status: ${batch.processing_status}`);
+                return null;
+            }
+
+            onProgress?.('Batch completo! Baixando resultados...', 95);
+
+            // Get results
+            const results: Array<{ customId: string; response: string | null }> = [];
+
+            // Stream results from the batch
+            for await (const result of await this.client.messages.batches.results(batchId, betaHeaders)) {
+                if (result.result.type === 'succeeded') {
+                    const message = result.result.message;
+                    const textContent = message.content.find((c: any) => c.type === 'text');
+                    results.push({
+                        customId: result.custom_id,
+                        response: textContent ? (textContent as any).text : null
+                    });
+
+                    // Update stats for this request
+                    this.updateStats(message.model, message.usage);
+                } else {
+                    console.warn(`[API] Request ${result.custom_id} failed:`, result.result);
+                    results.push({
+                        customId: result.custom_id,
+                        response: null
+                    });
+                }
+            }
+
+            onProgress?.('Resultados processados!', 100);
+            return results;
+
+        } catch (error: any) {
+            console.error('[API] Failed to get batch results:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Analyze documents using batch API (50% cheaper but async)
+     * Falls back to sync API if batch fails
+     */
+    public async analyzeDocumentsWithBatch(
+        documents: Array<{ id: string; content: string; fileName: string }>,
+        systemPrompt: string,
+        onProgress?: (status: string, progress: number) => void
+    ): Promise<Array<{ customId: string; response: string | null }> | null> {
+        // For single document or small batches, use sync API (faster response)
+        if (documents.length <= 1) {
+            onProgress?.('Usando API síncrona (documento único)...', 10);
+            const response = await this.callSonnetForDocumentAnalysis(
+                systemPrompt,
+                `Analise este documento do projeto e extraia regras para supervisão.
+
+Arquivo: ${documents[0].fileName}
+
+=== CONTEÚDO DO DOCUMENTO ===
+${documents[0].content.substring(0, 15000)}
+=== FIM DO DOCUMENTO ===
+
+Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`,
+                4000
+            );
+            return [{ customId: documents[0].id, response }];
+        }
+
+        // For multiple documents, use batch API (50% cheaper)
+        onProgress?.('Criando batch (50% mais barato)...', 5);
+
+        const batchResult = await this.createDocumentBatch(documents, systemPrompt);
+        if (!batchResult) {
+            // Fallback to sync API
+            console.warn('[API] Batch creation failed, falling back to sync API');
+            onProgress?.('Batch falhou, usando API síncrona...', 10);
+
+            const results: Array<{ customId: string; response: string | null }> = [];
+            for (let i = 0; i < documents.length; i++) {
+                const doc = documents[i];
+                const progress = 10 + (i / documents.length) * 80;
+                onProgress?.(`Analisando ${doc.fileName}...`, progress);
+
+                const response = await this.callSonnetForDocumentAnalysis(
+                    systemPrompt,
+                    `Analise este documento do projeto e extraia regras para supervisão.
+
+Arquivo: ${doc.fileName}
+
+=== CONTEÚDO DO DOCUMENTO ===
+${doc.content.substring(0, 15000)}
+=== FIM DO DOCUMENTO ===
+
+Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`,
+                    4000
+                );
+                results.push({ customId: doc.id, response });
+            }
+            return results;
+        }
+
+        // Wait for batch results
+        return this.getBatchResults(batchResult.batchId, onProgress);
     }
 
     public async validateApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {

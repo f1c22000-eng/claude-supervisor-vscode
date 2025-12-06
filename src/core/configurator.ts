@@ -38,20 +38,60 @@ export class Configurator {
         projectName: string,
         onProgress?: (progress: number, message: string) => void
     ): Promise<ImportResult> {
-        const totalDocs = documents.length;
-        let processedDocs = 0;
         const allAnalyses: DocumentAnalysis[] = [];
 
-        // Analyze each document
-        for (const doc of documents) {
-            onProgress?.(
-                Math.round((processedDocs / totalDocs) * 50),
-                `Analisando ${path.basename(doc.path)}...`
+        // Use Batch API for multiple documents (50% cheaper)
+        if (documents.length > 1) {
+            onProgress?.(5, `Usando Batch API (50% mais barato) para ${documents.length} documentos...`);
+
+            const batchDocs = documents.map(doc => ({
+                id: path.basename(doc.path),
+                content: doc.content,
+                fileName: path.basename(doc.path)
+            }));
+
+            const results = await anthropicClient.analyzeDocumentsWithBatch(
+                batchDocs,
+                CONFIGURATOR_SYSTEM_PROMPT,
+                (status, progress) => {
+                    onProgress?.(Math.round(progress * 0.5), status);
+                }
             );
 
-            const analysis = await this.analyzeDocument(doc.content, doc.path);
-            allAnalyses.push(analysis);
-            processedDocs++;
+            if (results) {
+                for (const result of results) {
+                    if (result.response) {
+                        try {
+                            // Extract JSON from markdown code blocks if present
+                            const cleanJson = this.extractJsonFromResponse(result.response);
+                            const parsed = JSON.parse(cleanJson);
+                            allAnalyses.push({
+                                themes: parsed.themes || [],
+                                subThemes: parsed.subThemes || {},
+                                rules: (parsed.rules || []).map((r: any) => ({
+                                    id: uuidv4(),
+                                    description: r.description,
+                                    severity: this.parseSeverity(r.severity),
+                                    check: r.check,
+                                    enabled: true
+                                }))
+                            });
+                        } catch (error) {
+                            console.warn(`[Configurator] Failed to parse response for ${result.customId}:`, error);
+                            allAnalyses.push({ themes: [], subThemes: {}, rules: [] });
+                        }
+                    } else {
+                        allAnalyses.push({ themes: [], subThemes: {}, rules: [] });
+                    }
+                }
+            }
+        } else {
+            // Single document - use sync API (faster)
+            for (const doc of documents) {
+                onProgress?.(10, `Analisando ${path.basename(doc.path)}...`);
+                const analysis = await this.analyzeDocument(doc.content, doc.path);
+                allAnalyses.push(analysis);
+            }
         }
 
         onProgress?.(60, 'Gerando hierarquia de supervisores...');
@@ -64,10 +104,15 @@ export class Configurator {
         // Generate supervisor configs
         const hierarchy = this.generateHierarchy(mergedAnalysis, projectName);
 
-        onProgress?.(90, 'Salvando configuração...');
-
-        // Save YAML
-        const yamlPath = await this.saveConfiguration(hierarchy, projectName);
+        // Try to save YAML (may fail if no workspace is open)
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            onProgress?.(90, 'Salvando configuração...');
+            await this.saveConfiguration(hierarchy, projectName);
+        } else {
+            onProgress?.(90, 'Workspace não aberto - configuração não salva em arquivo');
+            console.warn('[Configurator] No workspace folder open - YAML not saved to file');
+        }
 
         onProgress?.(100, 'Concluído!');
 
@@ -86,6 +131,9 @@ export class Configurator {
     }
 
     private async analyzeDocument(content: string, filePath: string): Promise<DocumentAnalysis> {
+        console.log(`[Configurator] Analyzing document: ${path.basename(filePath)}`);
+        console.log(`[Configurator] Content length: ${content.length} chars`);
+
         // Use comprehensive system prompt that explains what Claude Supervisor is
         const userMessage = `Analise este documento do projeto e extraia regras para supervisão.
 
@@ -97,14 +145,19 @@ ${content.substring(0, 15000)}
 
 Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
 
-        const response = await anthropicClient.callSonnet(CONFIGURATOR_SYSTEM_PROMPT, userMessage, 4000);
+        console.log(`[Configurator] Calling Sonnet API with extended timeout (120s)...`);
+        const response = await anthropicClient.callSonnetForDocumentAnalysis(CONFIGURATOR_SYSTEM_PROMPT, userMessage, 4000);
+        console.log(`[Configurator] API response received: ${response ? response.length + ' chars' : 'null'}`);
 
         if (!response) {
+            console.warn(`[Configurator] No response from API for ${path.basename(filePath)}`);
             return { themes: [], subThemes: {}, rules: [] };
         }
 
         try {
-            const parsed = JSON.parse(response);
+            // Extract JSON from markdown code blocks if present
+            const cleanJson = this.extractJsonFromResponse(response);
+            const parsed = JSON.parse(cleanJson);
             return {
                 themes: parsed.themes || [],
                 subThemes: parsed.subThemes || {},
@@ -118,6 +171,7 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
             };
         } catch (error) {
             console.error('Failed to parse document analysis:', error);
+            console.error('Response was:', response.substring(0, 500));
             return { themes: [], subThemes: {}, rules: [] };
         }
     }
@@ -250,6 +304,36 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
             case 'medium': return Severity.MEDIUM;
             default: return Severity.LOW;
         }
+    }
+
+    /**
+     * Extract JSON from API response that may contain markdown code blocks
+     * Handles responses like: ```json\n{...}\n```
+     */
+    private extractJsonFromResponse(response: string): string {
+        // Remove markdown code blocks if present
+        let cleaned = response.trim();
+
+        // Pattern 1: ```json ... ```
+        const jsonBlockMatch = cleaned.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch) {
+            return jsonBlockMatch[1].trim();
+        }
+
+        // Pattern 2: ``` ... ``` (any language or none)
+        const codeBlockMatch = cleaned.match(/```\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
+            return codeBlockMatch[1].trim();
+        }
+
+        // Pattern 3: Just find the JSON object
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return jsonMatch[0];
+        }
+
+        // No transformation needed
+        return cleaned;
     }
 
     // ========================================

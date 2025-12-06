@@ -4,9 +4,11 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { SupervisorHierarchy } from '../supervisors/hierarchy';
 import { configurator } from '../core/configurator';
-import { ImportResult, Severity } from '../core/types';
+import { configManager } from '../core/config';
+import { ImportResult, Severity, ProjectConfig } from '../core/types';
 
 // ============================================
 // IMPORT PANEL PROVIDER
@@ -103,6 +105,9 @@ export class ImportPanelProvider {
     }
 
     private async handleAnalyzeFiles(projectName: string): Promise<void> {
+        console.log(`[ImportPanel] handleAnalyzeFiles called with project: ${projectName}`);
+        console.log(`[ImportPanel] Selected files: ${this.selectedFiles.length}`);
+
         if (this.selectedFiles.length === 0) {
             vscode.window.showWarningMessage('Selecione pelo menos um arquivo para analisar');
             return;
@@ -122,8 +127,10 @@ export class ImportPanelProvider {
 
         try {
             // Read documents
+            console.log(`[ImportPanel] Reading documents...`);
             const filePaths = this.selectedFiles.map(f => f.path);
             const documents = await configurator.readDocuments(filePaths);
+            console.log(`[ImportPanel] Documents read: ${documents.length}`);
 
             if (documents.length === 0) {
                 throw new Error('Nenhum documento pôde ser lido');
@@ -156,19 +163,38 @@ export class ImportPanelProvider {
         }
     }
 
-    private handleApplyRules(): void {
+    private async handleApplyRules(): Promise<void> {
         if (!this.analysisResult) {
             vscode.window.showWarningMessage('Nenhuma análise para aplicar');
             return;
         }
 
-        // Add each supervisor to the hierarchy
+        // Get current workspace path
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workspacePath = workspaceFolder?.uri.fsPath || '';
+
+        // Create project config and save to storage
+        const projectConfig: ProjectConfig = {
+            id: uuidv4(),
+            name: this.analysisResult.projectName,
+            workspacePath: workspacePath,
+            yamlPath: `config/supervisors/${this.analysisResult.projectName.toLowerCase()}.yaml`,
+            supervisors: this.analysisResult.hierarchy,
+            enabled: true,
+            lastUpdated: Date.now()
+        };
+
+        // Save project to config manager (persistent storage)
+        await configManager.addProject(projectConfig);
+        console.log(`[ImportPanel] Project saved: ${projectConfig.name} with ${projectConfig.supervisors.length} supervisors`);
+
+        // Add each supervisor to the current hierarchy (in-memory)
         for (const config of this.analysisResult.hierarchy) {
             this.hierarchy.addSupervisorFromConfig(config);
         }
 
         vscode.window.showInformationMessage(
-            `${this.analysisResult.rules} regras aplicadas à hierarquia de supervisores!`
+            `Projeto "${this.analysisResult.projectName}" salvo! ${this.analysisResult.rules} regras aplicadas.`
         );
     }
 

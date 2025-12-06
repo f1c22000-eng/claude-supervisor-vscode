@@ -236,6 +236,93 @@ export class ConfigPanelProvider {
                     }
                 }
                 break;
+            case 'linkProjectToWorkspace':
+                // Associate project with current workspace
+                const projectToLink = configManager.getProject(message.projectId);
+                if (projectToLink) {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    if (workspaceFolder) {
+                        projectToLink.workspacePath = workspaceFolder.uri.fsPath;
+                        projectToLink.lastUpdated = Date.now();
+                        await configManager.addProject(projectToLink);
+                        vscode.window.showInformationMessage(
+                            `Projeto "${projectToLink.name}" associado ao workspace "${path.basename(workspaceFolder.uri.fsPath)}". Reinicie a extensão para carregar os supervisores.`
+                        );
+                    } else {
+                        vscode.window.showWarningMessage('Nenhum workspace aberto');
+                    }
+                }
+                break;
+            case 'addDocsToProject':
+                // Open file picker to select documents
+                const files = await vscode.window.showOpenDialog({
+                    canSelectMany: true,
+                    filters: {
+                        'Documentos': ['md', 'txt', 'pdf', 'docx'],
+                        'Markdown': ['md'],
+                        'Texto': ['txt'],
+                        'PDF': ['pdf'],
+                        'Word': ['docx']
+                    },
+                    title: `Adicionar documentos ao projeto "${message.projectName}"`
+                });
+
+                if (files && files.length > 0) {
+                    // Import the configurator
+                    const { configurator } = await import('../core/configurator');
+
+                    // Use await to wait for the progress to complete
+                    await vscode.window.withProgress({
+                        location: vscode.ProgressLocation.Notification,
+                        title: `Analisando documentos para "${message.projectName}"`,
+                        cancellable: false
+                    }, async (progress) => {
+                        try {
+                            // Read documents
+                            const filePaths = files.map(f => f.fsPath);
+                            progress.report({ message: 'Lendo documentos...', increment: 10 });
+
+                            const documents = await configurator.readDocuments(filePaths);
+                            if (documents.length === 0) {
+                                throw new Error('Nenhum documento pôde ser lido');
+                            }
+
+                            // Analyze documents
+                            progress.report({ message: `Analisando ${documents.length} documento(s) com Claude Sonnet...`, increment: 20 });
+
+                            const result = await configurator.analyzeDocuments(
+                                documents,
+                                message.projectName,
+                                (prog, msg) => {
+                                    progress.report({ message: msg, increment: prog / 2 });
+                                }
+                            );
+
+                            // Update project with new supervisors
+                            const project = configManager.getProject(message.projectId);
+                            if (project && result.hierarchy) {
+                                // Add new supervisors to existing project
+                                project.supervisors = [...project.supervisors, ...result.hierarchy];
+                                project.lastUpdated = Date.now();
+                                await configManager.addProject(project);
+
+                                vscode.window.showInformationMessage(
+                                    `Adicionados ${result.rules} regras em ${result.specialists + result.coordinators} supervisores ao projeto "${message.projectName}"`
+                                );
+
+                                // Refresh the panel to show updated data
+                                if (this.panel) {
+                                    this.panel.webview.html = this.getHtml(this.panel.webview);
+                                }
+                            }
+                        } catch (error) {
+                            vscode.window.showErrorMessage(
+                                `Erro ao analisar documentos: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+                            );
+                        }
+                    });
+                }
+                break;
         }
 
         if (this.panel) {
@@ -599,27 +686,33 @@ export class ConfigPanelProvider {
     <div class="section">
         <div class="section-title">PROJETOS</div>
 
-        ${projects.length > 0 ? projects.map(p => `
+        ${projects.length > 0 ? projects.map(p => {
+            const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+            const isLinked = p.workspacePath && p.workspacePath.toLowerCase() === currentWorkspace.toLowerCase();
+            return `
         <div class="project-card">
             <div class="project-header">
                 <span class="project-name">
                     📁 ${p.name}
                     <span style="color: ${p.enabled !== false ? 'var(--success)' : 'var(--text-secondary)'};">${p.enabled !== false ? '🟢 Ativo' : '⚪ Inativo'}</span>
+                    ${isLinked ? '<span style="color: var(--accent); font-size: 10px;">🔗 Este workspace</span>' : ''}
                 </span>
             </div>
             <div class="project-meta">
-                Supervisores: ${p.supervisors.length} | Regras: ${p.supervisors.reduce((acc, s) => acc + s.rules.length, 0)}<br>
+                Supervisores: ${p.supervisors.length} | Regras: ${p.supervisors.reduce((acc: number, s: any) => acc + s.rules.length, 0)}<br>
                 Última atualização: ${new Date(p.lastUpdated).toLocaleString('pt-BR')}<br>
-                Arquivo: ${p.yamlPath}
+                Arquivo: ${p.yamlPath}${p.workspacePath ? `<br>Workspace: ${p.workspacePath}` : '<br><span style="color: var(--warning);">⚠️ Não associado a workspace</span>'}
             </div>
             <div class="project-actions">
+                ${!isLinked ? `<button class="project-btn" style="background: var(--accent);" onclick="send('linkProjectToWorkspace', {projectId: '${p.id}'})">🔗 Associar</button>` : ''}
+                <button class="project-btn" onclick="send('addDocsToProject', {projectId: '${p.id}', projectName: '${p.name}'})">📥 Adicionar Docs</button>
                 <button class="project-btn" onclick="send('editProject', {projectId: '${p.id}'})">✏️ Editar</button>
                 <button class="project-btn" onclick="send('viewYaml', {projectId: '${p.id}'})">📄 Ver YAML</button>
                 <button class="project-btn" onclick="send('toggleProject', {projectId: '${p.id}'})">${p.enabled !== false ? '⏸️ Desativar' : '▶️ Ativar'}</button>
                 <button class="project-btn" onclick="send('deleteProject', {projectId: '${p.id}'})">🗑️</button>
             </div>
         </div>
-        `).join('') : `
+        `;}).join('') : `
         <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
             Nenhum projeto configurado
         </div>
