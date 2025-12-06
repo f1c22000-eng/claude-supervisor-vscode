@@ -99,6 +99,10 @@
       {
         "command": "claudeSupervisor.openTerminal",
         "title": "Claude Supervisor: Open Terminal"
+      },
+      {
+        "command": "claudeSupervisor.configureTerminalEnv",
+        "title": "Claude Supervisor: Configure Terminal Environment"
       }
     ],
     "keybindings": [

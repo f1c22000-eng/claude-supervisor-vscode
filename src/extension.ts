@@ -24,6 +24,7 @@ import { initPatternLearner } from './core/pattern-learner';
 // ============================================
 
 let isActive = false;
+let terminalEnvConfigured = false;
 let sidebarProvider: SidebarProvider;
 let interceptorManager: InterceptorManager;
 let scopeManager: ScopeManager;
@@ -42,6 +43,9 @@ export async function activate(context: vscode.ExtensionContext) {
         // Initialize configuration manager
         configManager.initialize(context);
         console.log('Config manager initialized');
+
+        // Auto-configure terminal environment for Claude Code proxy
+        await configureTerminalEnvironment();
 
         // Initialize API client (don't fail if no key)
         let apiInitialized = false;
@@ -422,6 +426,13 @@ function registerCommands(context: vscode.ExtensionContext) {
             terminalHandler.showTerminal();
         })
     );
+
+    // Configure Terminal Environment (manual trigger)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.CONFIGURE_TERMINAL_ENV, async () => {
+            await configureTerminalEnvironment(true); // Force reconfigure
+        })
+    );
 }
 
 // ============================================
@@ -559,5 +570,87 @@ function getPanelTitle(type: string): string {
         case 'config': return 'Configuração';
         case 'import': return 'Importar Documentos';
         default: return 'Claude Supervisor';
+    }
+}
+
+// ============================================
+// TERMINAL ENVIRONMENT CONFIGURATION
+// ============================================
+
+/**
+ * Configures VS Code terminal environment to automatically set
+ * ANTHROPIC_BASE_URL so Claude Code uses our proxy without manual setup.
+ * @param forceReconfigure If true, reconfigures even if already set (for manual trigger)
+ */
+async function configureTerminalEnvironment(forceReconfigure: boolean = false): Promise<void> {
+    const PROXY_URL = 'http://localhost:8888';
+    const ENV_VAR = 'ANTHROPIC_BASE_URL';
+
+    try {
+        const config = vscode.workspace.getConfiguration('terminal.integrated.env');
+
+        // Detect OS for the correct setting key
+        const platform = process.platform;
+        let envKey: string;
+
+        if (platform === 'win32') {
+            envKey = 'windows';
+        } else if (platform === 'darwin') {
+            envKey = 'osx';
+        } else {
+            envKey = 'linux';
+        }
+
+        // Get current environment settings for this platform
+        const currentEnv = config.get<Record<string, string>>(envKey) || {};
+
+        // Check if already configured
+        if (currentEnv[ENV_VAR] === PROXY_URL && !forceReconfigure) {
+            console.log(`[Terminal Env] ${ENV_VAR} already configured for ${envKey}`);
+            terminalEnvConfigured = true;
+            return;
+        }
+
+        // Check if set to a different value (user might have custom config)
+        if (currentEnv[ENV_VAR] && currentEnv[ENV_VAR] !== PROXY_URL && !forceReconfigure) {
+            console.log(`[Terminal Env] ${ENV_VAR} has custom value: ${currentEnv[ENV_VAR]}`);
+            // Don't override user's custom configuration
+            return;
+        }
+
+        // Add our proxy URL to the environment
+        const newEnv = {
+            ...currentEnv,
+            [ENV_VAR]: PROXY_URL
+        };
+
+        // Update configuration globally (user settings)
+        await config.update(envKey, newEnv, vscode.ConfigurationTarget.Global);
+
+        terminalEnvConfigured = true;
+        console.log(`[Terminal Env] Configured ${ENV_VAR}=${PROXY_URL} for ${envKey}`);
+
+        // Show info message
+        const message = forceReconfigure
+            ? `Terminal reconfigurado: ${ENV_VAR}=${PROXY_URL}`
+            : `Claude Supervisor: Terminal configurado automaticamente. ` +
+              `Novos terminais usarão o proxy (${ENV_VAR}=${PROXY_URL}). ` +
+              `Reinicie terminais abertos para aplicar.`;
+
+        vscode.window.showInformationMessage(
+            message,
+            'OK',
+            'Abrir Novo Terminal'
+        ).then(selection => {
+            if (selection === 'Abrir Novo Terminal') {
+                vscode.commands.executeCommand('workbench.action.terminal.new');
+            }
+        });
+
+    } catch (error) {
+        console.error('[Terminal Env] Failed to configure:', error);
+        if (forceReconfigure) {
+            vscode.window.showErrorMessage(`Falha ao configurar terminal: ${error}`);
+        }
     }
 }

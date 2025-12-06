@@ -41,7 +41,8 @@ export const COMMANDS = {
     ADD_RULE: 'claudeSupervisor.addRule',
     SHOW_SCOPE: 'claudeSupervisor.showScope',
     IMPORT_DOCS: 'claudeSupervisor.importDocs',
-    OPEN_TERMINAL: 'claudeSupervisor.openTerminal'
+    OPEN_TERMINAL: 'claudeSupervisor.openTerminal',
+    CONFIGURE_TERMINAL_ENV: 'claudeSupervisor.configureTerminalEnv'
 };
 
 // ============================================
