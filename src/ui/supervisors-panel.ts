@@ -392,7 +392,7 @@ export class SupervisorsPanelProvider {
                     ou carregue os exemplos para testar o sistema.
                 </p>
                 <div class="actions">
-                    <button class="btn btn-primary" onclick="send('importDocs')">📄 Importar Documentos</button>
+                    <button class="btn btn-primary" onclick="send('importDocs')">+ Novo Projeto</button>
                     <button class="btn btn-secondary" onclick="send('loadExamples')">📚 Carregar Exemplos</button>
                 </div>
             </div>

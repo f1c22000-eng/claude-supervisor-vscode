@@ -121,7 +121,11 @@ export class ConfigPanelProvider {
                 vscode.env.openExternal(vscode.Uri.parse(ANTHROPIC_PRICING_URL));
                 break;
             case 'newProject':
-                // Open input box for project name
+                // Open import docs panel (creates project with documents)
+                vscode.commands.executeCommand('claudeSupervisor.importDocs');
+                break;
+            case 'newProjectLegacy':
+                // Legacy: Open input box for project name (not used anymore)
                 const projectName = await vscode.window.showInputBox({
                     prompt: 'Nome do novo projeto',
                     placeHolder: 'Ex: MeuProjeto',
@@ -719,8 +723,7 @@ export class ConfigPanelProvider {
         `}
 
         <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button class="btn" onclick="send('newProject')">+ Novo Projeto</button>
-            <button class="btn" onclick="send('importDocs')">📄 Importar de Documentos</button>
+            <button class="btn btn-primary" onclick="send('newProject')">+ Novo Projeto</button>
         </div>
     </div>
 
