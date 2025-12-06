@@ -9,6 +9,7 @@ import { configManager } from '../core/config';
 import { anthropicClient } from '../core/api';
 import { AVAILABLE_MODELS, ANTHROPIC_PRICING_URL, USD_TO_BRL } from '../core/constants';
 import { ProjectConfig } from '../core/types';
+import { SupervisorHierarchy } from '../supervisors/hierarchy';
 
 // ============================================
 // CONFIG PANEL PROVIDER
@@ -18,9 +19,11 @@ export class ConfigPanelProvider {
     private extensionUri: vscode.Uri;
     private panel?: vscode.WebviewPanel;
     private configChangeDisposable?: vscode.Disposable;
+    private hierarchy?: SupervisorHierarchy;
 
-    constructor(extensionUri: vscode.Uri) {
+    constructor(extensionUri: vscode.Uri, hierarchy?: SupervisorHierarchy) {
         this.extensionUri = extensionUri;
+        this.hierarchy = hierarchy;
     }
 
     public setPanel(panel: vscode.WebviewPanel): void {
@@ -230,13 +233,20 @@ export class ConfigPanelProvider {
                 const projectToDelete = configManager.getProject(message.projectId);
                 if (projectToDelete) {
                     const confirm = await vscode.window.showWarningMessage(
-                        `Excluir projeto "${projectToDelete.name}"?`,
+                        `Excluir projeto "${projectToDelete.name}" e todos os seus supervisores?`,
                         { modal: true },
                         'Excluir'
                     );
                     if (confirm === 'Excluir') {
+                        // Remove supervisors from hierarchy
+                        if (this.hierarchy) {
+                            this.hierarchy.clearAllSupervisors();
+                            // Reload core behavior supervisors
+                            await this.hierarchy.loadCoreBehaviorSupervisors();
+                        }
+                        // Remove project from config
                         await configManager.removeProject(message.projectId);
-                        vscode.window.showInformationMessage(`Projeto "${projectToDelete.name}" excluído`);
+                        vscode.window.showInformationMessage(`Projeto "${projectToDelete.name}" e seus supervisores foram excluídos`);
                     }
                 }
                 break;

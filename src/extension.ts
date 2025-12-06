@@ -500,7 +500,7 @@ function openPanel(context: vscode.ExtensionContext, type: string) {
             monitorProvider.setPanel(panel);
             break;
         case 'config':
-            const configProvider = new ConfigPanelProvider(context.extensionUri);
+            const configProvider = new ConfigPanelProvider(context.extensionUri, supervisorHierarchy);
             panel.webview.html = configProvider.getHtml(panel.webview);
             configProvider.setPanel(panel);
             break;
