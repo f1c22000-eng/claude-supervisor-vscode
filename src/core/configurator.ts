@@ -334,22 +334,50 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
         return [...new Set(keywords)];
     }
 
+    /**
+     * Normalize string for comparison: lowercase, remove accents, trim
+     */
+    private normalizeString(str: string): string {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove accents
+            .replace(/[^a-z0-9]/g, '') // Keep only alphanumeric
+            .trim();
+    }
+
     private ruleMatchesTheme(rule: any, theme: string, subTheme: string): boolean {
+        const normalizedTheme = this.normalizeString(theme);
+        const normalizedSubTheme = this.normalizeString(subTheme);
+
         // First, try to match using explicit theme/subTheme fields from AI
         if (rule.theme && rule.subTheme) {
-            return rule.theme.toLowerCase() === theme.toLowerCase() &&
-                   rule.subTheme.toLowerCase() === subTheme.toLowerCase();
+            const ruleTheme = this.normalizeString(rule.theme);
+            const ruleSubTheme = this.normalizeString(rule.subTheme);
+
+            // Exact match
+            if (ruleTheme === normalizedTheme && ruleSubTheme === normalizedSubTheme) {
+                return true;
+            }
+
+            // Partial match (subTheme contains or is contained by expected)
+            if (ruleTheme === normalizedTheme &&
+                (ruleSubTheme.includes(normalizedSubTheme) || normalizedSubTheme.includes(ruleSubTheme))) {
+                return true;
+            }
         }
 
-        // Fallback: match if theme field matches (allow any subTheme)
+        // Fallback: match if theme field matches (allow any subTheme under that theme)
         if (rule.theme) {
-            return rule.theme.toLowerCase() === theme.toLowerCase();
+            const ruleTheme = this.normalizeString(rule.theme);
+            if (ruleTheme === normalizedTheme) {
+                return true;
+            }
         }
 
-        // Last resort: text matching (for backwards compatibility)
-        const ruleText = `${rule.description} ${rule.check}`.toLowerCase();
-        return ruleText.includes(theme.toLowerCase()) ||
-               ruleText.includes(subTheme.toLowerCase());
+        // Last resort: text matching in description/check
+        const ruleText = this.normalizeString(`${rule.description || ''} ${rule.check || ''}`);
+        return ruleText.includes(normalizedTheme) || ruleText.includes(normalizedSubTheme);
     }
 
     private parseSeverity(severity: string): Severity {
