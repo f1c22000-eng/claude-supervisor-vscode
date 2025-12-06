@@ -175,6 +175,67 @@ export class ConfigPanelProvider {
                 // Execute the import docs command
                 vscode.commands.executeCommand('claudeSupervisor.importDocs');
                 break;
+            case 'editProject':
+                const projectToEdit = configManager.getProject(message.projectId);
+                if (projectToEdit) {
+                    const newName = await vscode.window.showInputBox({
+                        prompt: 'Novo nome do projeto',
+                        value: projectToEdit.name,
+                        validateInput: (value) => {
+                            if (!value || value.trim().length === 0) {
+                                return 'Nome não pode ser vazio';
+                            }
+                            return null;
+                        }
+                    });
+                    if (newName && newName !== projectToEdit.name) {
+                        projectToEdit.name = newName;
+                        projectToEdit.lastUpdated = Date.now();
+                        await configManager.addProject(projectToEdit);
+                        vscode.window.showInformationMessage(`Projeto renomeado para "${newName}"`);
+                    }
+                }
+                break;
+            case 'viewYaml':
+                const projectYaml = configManager.getProject(message.projectId);
+                if (projectYaml) {
+                    const yamlPath = path.join(
+                        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+                        projectYaml.yamlPath
+                    );
+                    try {
+                        const doc = await vscode.workspace.openTextDocument(yamlPath);
+                        await vscode.window.showTextDocument(doc);
+                    } catch {
+                        vscode.window.showWarningMessage(`Arquivo não encontrado: ${yamlPath}`);
+                    }
+                }
+                break;
+            case 'toggleProject':
+                const projectToToggle = configManager.getProject(message.projectId);
+                if (projectToToggle) {
+                    projectToToggle.enabled = !projectToToggle.enabled;
+                    projectToToggle.lastUpdated = Date.now();
+                    await configManager.addProject(projectToToggle);
+                    vscode.window.showInformationMessage(
+                        `Projeto "${projectToToggle.name}" ${projectToToggle.enabled ? 'ativado' : 'desativado'}`
+                    );
+                }
+                break;
+            case 'deleteProject':
+                const projectToDelete = configManager.getProject(message.projectId);
+                if (projectToDelete) {
+                    const confirm = await vscode.window.showWarningMessage(
+                        `Excluir projeto "${projectToDelete.name}"?`,
+                        { modal: true },
+                        'Excluir'
+                    );
+                    if (confirm === 'Excluir') {
+                        await configManager.removeProject(message.projectId);
+                        vscode.window.showInformationMessage(`Projeto "${projectToDelete.name}" excluído`);
+                    }
+                }
+                break;
         }
 
         if (this.panel) {
@@ -552,10 +613,10 @@ export class ConfigPanelProvider {
                 Arquivo: ${p.yamlPath}
             </div>
             <div class="project-actions">
-                <button class="project-btn">✏️ Editar</button>
-                <button class="project-btn">📄 Ver YAML</button>
-                <button class="project-btn">⏸️ Desativar</button>
-                <button class="project-btn">🗑️</button>
+                <button class="project-btn" onclick="send('editProject', {projectId: '${p.id}'})">✏️ Editar</button>
+                <button class="project-btn" onclick="send('viewYaml', {projectId: '${p.id}'})">📄 Ver YAML</button>
+                <button class="project-btn" onclick="send('toggleProject', {projectId: '${p.id}'})">${p.enabled !== false ? '⏸️ Desativar' : '▶️ Ativar'}</button>
+                <button class="project-btn" onclick="send('deleteProject', {projectId: '${p.id}'})">🗑️</button>
             </div>
         </div>
         `).join('') : `
