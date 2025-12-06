@@ -28,6 +28,16 @@ export class ScopeManager extends EventEmitter {
     private state: ScopeState;
     private noteTimer: NodeJS.Timeout | null = null;
 
+    /**
+     * Normalize string: lowercase, remove accents
+     */
+    private normalizeForSearch(str: string): string {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+    }
+
     constructor(context: vscode.ExtensionContext) {
         super();
         this.context = context;
@@ -396,10 +406,11 @@ export class ScopeManager extends EventEmitter {
             numbers.push(...numberMatches.map(n => parseInt(n, 10)));
         }
 
-        // Check for "all" keywords
+        // Check for "all" keywords (accent-insensitive)
         const allKeywords = ['todas', 'todos', 'cada', 'all', 'every'];
+        const normalizedMessage = this.normalizeForSearch(message);
         hasAllKeyword = allKeywords.some(k =>
-            message.toLowerCase().includes(k)
+            normalizedMessage.includes(this.normalizeForSearch(k))
         );
 
         // Extract list items (bullet points, numbered lists)

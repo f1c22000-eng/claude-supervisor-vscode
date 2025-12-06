@@ -20,6 +20,16 @@ export class BehaviorSupervisor extends EventEmitter {
         super();
     }
 
+    /**
+     * Normalize string: lowercase, remove accents
+     */
+    private normalizeForSearch(str: string): string {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+    }
+
     // ========================================
     // ANALYSIS
     // ========================================
@@ -76,11 +86,11 @@ export class BehaviorSupervisor extends EventEmitter {
         originalRequest: string
     ): Promise<SupervisorResult | null> {
         const startTime = Date.now();
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
-        // Quick pattern matching first
+        // Quick pattern matching first (accent-insensitive)
         for (const pattern of BEHAVIOR_PATTERNS.SCOPE_REDUCTION) {
-            if (lowerThinking.includes(pattern.toLowerCase())) {
+            if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
                 // Found pattern - verify with AI
                 const result = await anthropicClient.detectBehavior(
                     thinking,
@@ -112,10 +122,10 @@ export class BehaviorSupervisor extends EventEmitter {
 
     private async checkProcrastination(thinking: string): Promise<SupervisorResult | null> {
         const startTime = Date.now();
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
         for (const pattern of BEHAVIOR_PATTERNS.PROCRASTINATION) {
-            if (lowerThinking.includes(pattern.toLowerCase())) {
+            if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
                 return {
                     supervisorId: 'behavior-procrastination',
                     supervisorName: 'Comportamento.Procrastinação',
@@ -142,12 +152,12 @@ export class BehaviorSupervisor extends EventEmitter {
         currentProgress: string
     ): Promise<SupervisorResult | null> {
         const startTime = Date.now();
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
-        // Check if Claude is saying it's done
+        // Check if Claude is saying it's done (accent-insensitive)
         let sayingDone = false;
         for (const pattern of BEHAVIOR_PATTERNS.COMPLETION_PHRASES) {
-            if (lowerThinking.includes(pattern.toLowerCase())) {
+            if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
                 sayingDone = true;
                 break;
             }

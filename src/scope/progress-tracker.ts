@@ -18,6 +18,16 @@ export class ProgressTracker extends EventEmitter {
         super();
     }
 
+    /**
+     * Normalize string: lowercase, remove accents
+     */
+    private normalizeForSearch(str: string): string {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+    }
+
     // ========================================
     // SCOPE DETECTION
     // ========================================
@@ -27,14 +37,14 @@ export class ProgressTracker extends EventEmitter {
         items: string[];
         hasAllKeyword: boolean;
     } {
-        const lowerMessage = message.toLowerCase();
+        const normalizedMessage = this.normalizeForSearch(message);
         let itemCount: number | undefined;
         const items: string[] = [];
         let hasAllKeyword = false;
 
-        // Check for "all" keywords
+        // Check for "all" keywords (accent-insensitive)
         const allKeywords = ['todas', 'todos', 'cada', 'every', 'all'];
-        hasAllKeyword = allKeywords.some(k => lowerMessage.includes(k));
+        hasAllKeyword = allKeywords.some(k => normalizedMessage.includes(this.normalizeForSearch(k)));
 
         // Extract numbers (e.g., "refatorar 12 telas")
         const numberMatch = message.match(/(\d+)\s*(telas?|arquivos?|classes?|funções?|métodos?|componentes?|itens?|páginas?)/i);
@@ -63,10 +73,10 @@ export class ProgressTracker extends EventEmitter {
     // ========================================
 
     public detectCompletionClaim(thinking: string): boolean {
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
         for (const phrase of BEHAVIOR_PATTERNS.COMPLETION_PHRASES) {
-            if (lowerThinking.includes(phrase.toLowerCase())) {
+            if (normalizedThinking.includes(this.normalizeForSearch(phrase))) {
                 return true;
             }
         }
@@ -78,10 +88,10 @@ export class ProgressTracker extends EventEmitter {
         detected: boolean;
         phrase?: string;
     } {
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
         for (const pattern of BEHAVIOR_PATTERNS.SCOPE_REDUCTION) {
-            if (lowerThinking.includes(pattern.toLowerCase())) {
+            if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
                 return {
                     detected: true,
                     phrase: pattern
@@ -155,11 +165,12 @@ export class ProgressTracker extends EventEmitter {
         const unmatched: string[] = [];
 
         for (const expected of this.detectedItems) {
-            const lowerExpected = expected.toLowerCase();
-            const found = completedNames.some(name =>
-                name.toLowerCase().includes(lowerExpected) ||
-                lowerExpected.includes(name.toLowerCase())
-            );
+            const normalizedExpected = this.normalizeForSearch(expected);
+            const found = completedNames.some(name => {
+                const normalizedName = this.normalizeForSearch(name);
+                return normalizedName.includes(normalizedExpected) ||
+                       normalizedExpected.includes(normalizedName);
+            });
 
             if (found) {
                 matched.push(expected);
