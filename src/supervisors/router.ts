@@ -72,13 +72,23 @@ export class Router extends SupervisorNode {
         return aiMatch;
     }
 
+    /**
+     * Normalize string: lowercase, remove accents
+     */
+    private normalizeForSearch(str: string): string {
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+    }
+
     private matchByKeywords(thinking: string): SupervisorNode | null {
-        const lowerThinking = thinking.toLowerCase();
+        const normalizedThinking = this.normalizeForSearch(thinking);
 
         for (const child of this.children) {
             const keywords = child.getKeywords();
             for (const keyword of keywords) {
-                if (lowerThinking.includes(keyword.toLowerCase())) {
+                if (normalizedThinking.includes(this.normalizeForSearch(keyword))) {
                     return child;
                 }
             }
