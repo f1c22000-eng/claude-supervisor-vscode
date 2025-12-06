@@ -7,6 +7,7 @@ import { SupervisorResult, Severity } from '../../core/types';
 import { anthropicClient } from '../../core/api';
 import { BEHAVIOR_PATTERNS } from '../../core/constants';
 import { configManager } from '../../core/config';
+import { getPatternLearner } from '../../core/pattern-learner';
 
 // ============================================
 // BEHAVIOR SUPERVISOR
@@ -18,6 +19,34 @@ export class BehaviorSupervisor extends EventEmitter {
 
     constructor() {
         super();
+    }
+
+    /**
+     * Store alert for pattern learning
+     */
+    private async storeForLearning(
+        thinking: string,
+        category: 'scope_reduction' | 'procrastination' | 'completion'
+    ): Promise<void> {
+        const learner = getPatternLearner();
+        if (learner) {
+            await learner.storeAlertChunk(thinking, category, false);
+        }
+    }
+
+    /**
+     * Check if thinking matches learned patterns (in addition to hardcoded ones)
+     */
+    private checkLearnedPatterns(thinking: string): {
+        matched: boolean;
+        category?: string;
+        pattern?: string;
+    } {
+        const learner = getPatternLearner();
+        if (learner) {
+            return learner.checkLearnedPatterns(thinking);
+        }
+        return { matched: false };
     }
 
     /**
@@ -87,29 +116,46 @@ export class BehaviorSupervisor extends EventEmitter {
     ): Promise<SupervisorResult | null> {
         const startTime = Date.now();
         const normalizedThinking = this.normalizeForSearch(thinking);
+        let matchedPattern: string | null = null;
 
-        // Quick pattern matching first (accent-insensitive)
+        // Check hardcoded patterns first (accent-insensitive)
         for (const pattern of BEHAVIOR_PATTERNS.SCOPE_REDUCTION) {
             if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
-                // Found pattern - verify with AI
-                const result = await anthropicClient.detectBehavior(
-                    thinking,
-                    originalRequest,
-                    ''
-                );
+                matchedPattern = pattern;
+                break;
+            }
+        }
 
-                if (result.detected && result.type === 'scope_reduction') {
-                    return {
-                        supervisorId: 'behavior-scope',
-                        supervisorName: 'Comportamento.Escopo',
-                        status: 'alert',
-                        severity: Severity.HIGH,
-                        message: `Redução de escopo detectada: ${result.explanation}`,
-                        thinkingSnippet: this.extractSnippetAround(thinking, pattern),
-                        timestamp: Date.now(),
-                        processingTime: Date.now() - startTime
-                    };
-                }
+        // Also check learned patterns
+        if (!matchedPattern) {
+            const learned = this.checkLearnedPatterns(thinking);
+            if (learned.matched && learned.category === 'scope_reduction') {
+                matchedPattern = learned.pattern || 'learned pattern';
+            }
+        }
+
+        if (matchedPattern) {
+            // Found pattern - verify with AI
+            const result = await anthropicClient.detectBehavior(
+                thinking,
+                originalRequest,
+                ''
+            );
+
+            if (result.detected && result.type === 'scope_reduction') {
+                // Store for learning
+                await this.storeForLearning(thinking, 'scope_reduction');
+
+                return {
+                    supervisorId: 'behavior-scope',
+                    supervisorName: 'Comportamento.Escopo',
+                    status: 'alert',
+                    severity: Severity.HIGH,
+                    message: `Redução de escopo detectada: ${result.explanation}`,
+                    thinkingSnippet: this.extractSnippetAround(thinking, matchedPattern),
+                    timestamp: Date.now(),
+                    processingTime: Date.now() - startTime
+                };
             }
         }
 
@@ -123,20 +169,38 @@ export class BehaviorSupervisor extends EventEmitter {
     private async checkProcrastination(thinking: string): Promise<SupervisorResult | null> {
         const startTime = Date.now();
         const normalizedThinking = this.normalizeForSearch(thinking);
+        let matchedPattern: string | null = null;
 
+        // Check hardcoded patterns
         for (const pattern of BEHAVIOR_PATTERNS.PROCRASTINATION) {
             if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
-                return {
-                    supervisorId: 'behavior-procrastination',
-                    supervisorName: 'Comportamento.Procrastinação',
-                    status: 'alert',
-                    severity: Severity.MEDIUM,
-                    message: `Linguagem de procrastinação detectada`,
-                    thinkingSnippet: this.extractSnippetAround(thinking, pattern),
-                    timestamp: Date.now(),
-                    processingTime: Date.now() - startTime
-                };
+                matchedPattern = pattern;
+                break;
             }
+        }
+
+        // Also check learned patterns
+        if (!matchedPattern) {
+            const learned = this.checkLearnedPatterns(thinking);
+            if (learned.matched && learned.category === 'procrastination') {
+                matchedPattern = learned.pattern || 'learned pattern';
+            }
+        }
+
+        if (matchedPattern) {
+            // Store for learning
+            await this.storeForLearning(thinking, 'procrastination');
+
+            return {
+                supervisorId: 'behavior-procrastination',
+                supervisorName: 'Comportamento.Procrastinação',
+                status: 'alert',
+                severity: Severity.MEDIUM,
+                message: `Linguagem de procrastinação detectada`,
+                thinkingSnippet: this.extractSnippetAround(thinking, matchedPattern),
+                timestamp: Date.now(),
+                processingTime: Date.now() - startTime
+            };
         }
 
         return null;
@@ -156,10 +220,20 @@ export class BehaviorSupervisor extends EventEmitter {
 
         // Check if Claude is saying it's done (accent-insensitive)
         let sayingDone = false;
+
+        // Check hardcoded patterns
         for (const pattern of BEHAVIOR_PATTERNS.COMPLETION_PHRASES) {
             if (normalizedThinking.includes(this.normalizeForSearch(pattern))) {
                 sayingDone = true;
                 break;
+            }
+        }
+
+        // Also check learned patterns
+        if (!sayingDone) {
+            const learned = this.checkLearnedPatterns(thinking);
+            if (learned.matched && learned.category === 'completion') {
+                sayingDone = true;
             }
         }
 
@@ -175,6 +249,9 @@ export class BehaviorSupervisor extends EventEmitter {
         );
 
         if (result.detected && result.type === 'incompleteness') {
+            // Store for learning
+            await this.storeForLearning(thinking, 'completion');
+
             return {
                 supervisorId: 'behavior-completeness',
                 supervisorName: 'Comportamento.Completude',

@@ -149,6 +149,7 @@ export const ITEM_STATUS_ICONS = {
 
 export const BEHAVIOR_PATTERNS = {
     SCOPE_REDUCTION: [
+        // Português
         'vou fazer só',
         'apenas essa',
         'por enquanto',
@@ -156,23 +157,71 @@ export const BEHAVIOR_PATTERNS = {
         'as outras depois',
         'primeiro só',
         'uma de cada vez',
-        'vou focar em'
+        'vou focar em',
+        'deixar o resto',
+        'simplificar',
+        'só essa parte',
+        'o resto fica',
+        // English
+        "i'll just",
+        "let me just",
+        "for now i'll",
+        "just focus on",
+        "starting with",
+        "the rest can wait",
+        "handle the others later",
+        "just this one",
+        "only the main",
+        "skip the",
+        "leave the rest",
+        "just this part",
+        "the others later",
+        "i'll only"
     ],
     PROCRASTINATION: [
+        // Português
         'deixo pra depois',
         'numa próxima',
         'depois a gente',
         'mais tarde',
-        'em outra oportunidade'
+        'em outra oportunidade',
+        'futuramente',
+        'quando der',
+        'fica pra depois',
+        // English
+        "later",
+        "i'll do that later",
+        "in a future",
+        "next time",
+        "we can add that",
+        "let's skip",
+        "TODO",
+        "FIXME",
+        "implement later",
+        "can wait",
+        "postpone",
+        "defer"
     ],
     COMPLETION_PHRASES: [
+        // Português
         'pronto',
         'terminei',
         'feito',
         'concluído',
         'finalizado',
         'está pronto',
-        'tarefa completa'
+        'tarefa completa',
+        'tudo certo',
+        // English
+        'done',
+        'finished',
+        'complete',
+        'all set',
+        "that should do it",
+        "that's everything",
+        "i've completed",
+        "all done",
+        "task complete"
     ]
 };
 

@@ -17,6 +17,7 @@ import { ScopeManager } from './scope';
 import { SupervisorHierarchy } from './supervisors/hierarchy';
 import { TerminalHandler } from './terminal';
 import { ConnectionStatus } from './core/types';
+import { initPatternLearner } from './core/pattern-learner';
 
 // ============================================
 // GLOBAL STATE
@@ -64,6 +65,11 @@ export async function activate(context: vscode.ExtensionContext) {
         scopeManager = new ScopeManager(context);
         supervisorHierarchy = new SupervisorHierarchy();
         terminalHandler = new TerminalHandler(scopeManager, supervisorHierarchy);
+
+        // Initialize pattern learner for automatic behavior pattern learning
+        const patternLearner = initPatternLearner(context);
+        console.log(`Pattern learner initialized: ${patternLearner.getStats().learnedPatterns} learned patterns`);
+
         console.log('Managers initialized');
 
         // Load core behavior supervisors (always active)
