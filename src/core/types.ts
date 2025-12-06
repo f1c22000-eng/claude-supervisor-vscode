@@ -66,6 +66,10 @@ export interface Rule {
     check: string;
     exampleViolation?: string;
     enabled: boolean;
+    // Fields for associating rules with supervisors during import
+    theme?: string;
+    subTheme?: string;
+    keywords?: string[];
 }
 
 export interface SupervisorConfig {

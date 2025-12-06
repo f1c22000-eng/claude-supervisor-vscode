@@ -73,7 +73,11 @@ export class Configurator {
                                     description: r.description,
                                     severity: this.parseSeverity(r.severity),
                                     check: r.check,
-                                    enabled: true
+                                    enabled: true,
+                                    // Preserve theme/subTheme for supervisor association
+                                    theme: r.theme,
+                                    subTheme: r.subTheme,
+                                    keywords: r.keywords
                                 }))
                             });
                         } catch (error) {
@@ -166,7 +170,11 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
                     description: r.description,
                     severity: this.parseSeverity(r.severity),
                     check: r.check,
-                    enabled: true
+                    enabled: true,
+                    // Preserve theme/subTheme for supervisor association
+                    theme: r.theme,
+                    subTheme: r.subTheme,
+                    keywords: r.keywords
                 }))
             };
         } catch (error) {
@@ -216,6 +224,7 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
 
     private generateHierarchy(analysis: DocumentAnalysis, projectName: string): SupervisorConfig[] {
         const configs: SupervisorConfig[] = [];
+        const assignedRuleIds = new Set<string>();
 
         // Create coordinators for each theme
         for (const theme of analysis.themes) {
@@ -242,17 +251,51 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
                     this.ruleMatchesTheme(r, theme, sub)
                 );
 
+                // Track assigned rules
+                subRules.forEach(r => assignedRuleIds.add(r.id));
+
+                // Merge keywords from rules into specialist keywords
+                const ruleKeywords = subRules.flatMap(r => r.keywords || []);
+                const allKeywords = [...this.generateKeywords(sub), ...ruleKeywords];
+
                 const specialist: SupervisorConfig = {
                     id: specialistId,
                     name: `${projectName}.${theme}.${sub}`,
                     type: SupervisorType.SPECIALIST,
                     parentId: coordinatorId,
-                    keywords: this.generateKeywords(sub),
+                    keywords: [...new Set(allKeywords)], // Deduplicate
                     rules: subRules,
                     enabled: true
                 };
 
                 configs.push(specialist);
+            }
+        }
+
+        // Check for unassigned rules and log warning
+        const unassignedRules = analysis.rules.filter(r => !assignedRuleIds.has(r.id));
+        if (unassignedRules.length > 0) {
+            console.warn(`[Configurator] ${unassignedRules.length} rules not assigned to any supervisor:`);
+            unassignedRules.forEach(r => {
+                console.warn(`  - "${r.description}" (theme: ${r.theme}, subTheme: ${r.subTheme})`);
+            });
+
+            // Try to assign unassigned rules to first matching coordinator's specialist
+            for (const rule of unassignedRules) {
+                if (rule.theme) {
+                    // Find a specialist under this theme
+                    const specialist = configs.find(c =>
+                        c.type === SupervisorType.SPECIALIST &&
+                        c.name.toLowerCase().includes(rule.theme!.toLowerCase())
+                    );
+                    if (specialist) {
+                        specialist.rules.push(rule);
+                        if (rule.keywords) {
+                            specialist.keywords = [...new Set([...specialist.keywords, ...rule.keywords])];
+                        }
+                        console.log(`[Configurator] Assigned orphan rule to ${specialist.name}`);
+                    }
+                }
             }
         }
 
@@ -292,6 +335,18 @@ Extraia temas, sub-temas e regras seguindo o formato JSON especificado.`;
     }
 
     private ruleMatchesTheme(rule: any, theme: string, subTheme: string): boolean {
+        // First, try to match using explicit theme/subTheme fields from AI
+        if (rule.theme && rule.subTheme) {
+            return rule.theme.toLowerCase() === theme.toLowerCase() &&
+                   rule.subTheme.toLowerCase() === subTheme.toLowerCase();
+        }
+
+        // Fallback: match if theme field matches (allow any subTheme)
+        if (rule.theme) {
+            return rule.theme.toLowerCase() === theme.toLowerCase();
+        }
+
+        // Last resort: text matching (for backwards compatibility)
         const ruleText = `${rule.description} ${rule.check}`.toLowerCase();
         return ruleText.includes(theme.toLowerCase()) ||
                ruleText.includes(subTheme.toLowerCase());
