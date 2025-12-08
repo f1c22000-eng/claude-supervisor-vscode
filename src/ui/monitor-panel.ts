@@ -7,7 +7,7 @@ import { InterceptorManager } from '../interceptor';
 import { AnthropicClient } from '../core/api';
 import { SupervisorHierarchy } from '../supervisors/hierarchy';
 import { ConnectionStatus } from '../core/types';
-import { USD_TO_BRL } from '../core/constants';
+import { costTracker } from '../core/cost-tracker';
 
 // ============================================
 // MONITOR PANEL PROVIDER
@@ -117,8 +117,9 @@ export class MonitorPanelProvider {
 
     public getHtml(webview: vscode.Webview): string {
         const state = this.interceptor.getState();
-        const stats = this.api.getStats();
-        const costBRL = (stats.session.totalCost * USD_TO_BRL).toFixed(2);
+        const costs = costTracker.getCosts();
+        const supervisorStats = this.supervisors.getStats();
+        const alertHistory = this.supervisors.getAlertHistory();
         const lastChunk = this.interceptor.getLastChunk();
         const proxyStatus = this.interceptor.getProxyStatus();
         const proxyPort = proxyStatus.port || 8888;
@@ -498,41 +499,54 @@ ${lastChunk ? `"${lastChunk.content}"` : 'Aguardando thinking do Claude Code...'
             </tr>
             <tr>
                 <td>Supervisores acionados</td>
-                <td>${stats.session.callCount}</td>
+                <td>${supervisorStats.totalCalls}</td>
             </tr>
             <tr>
                 <td>Alertas gerados</td>
-                <td>${this.supervisors.getStats().totalAlerts}</td>
+                <td>${supervisorStats.totalAlerts}</td>
             </tr>
             <tr>
                 <td>Intervenções</td>
-                <td>${this.supervisors.getAlertHistory().length}</td>
+                <td>${alertHistory.length}</td>
             </tr>
             <tr>
                 <td>Tempo médio análise</td>
-                <td>${stats.session.callCount > 0 ? '~200ms' : '-'}</td>
+                <td>${state.chunksProcessed > 0 ? '~200ms' : '-'}</td>
             </tr>
             <tr>
                 <td>Tokens input</td>
-                <td>${stats.session.inputTokens.toLocaleString()}</td>
+                <td>${costs.session.inputTokens.toLocaleString()}</td>
             </tr>
             <tr>
                 <td>Tokens output</td>
-                <td>${stats.session.outputTokens.toLocaleString()}</td>
+                <td>${costs.session.outputTokens.toLocaleString()}</td>
             </tr>
             <tr>
                 <td>Custo da sessão</td>
-                <td>R$ ${costBRL}</td>
+                <td>R$ ${costs.session.cost.toFixed(2)}</td>
             </tr>
         </table>
     </div>
 
     <div class="section">
-        <div class="section-title">HISTÓRICO DE INTERVENÇÕES</div>
+        <div class="section-title">HISTÓRICO DE INTERVENÇÕES (${alertHistory.length})</div>
         <div class="intervention-list">
+            ${alertHistory.length > 0 ? alertHistory.slice(0, 20).map(alert => `
+            <div class="intervention-item">
+                <div class="intervention-header">
+                    <span class="intervention-time">${new Date(alert.timestamp).toLocaleTimeString()}</span>
+                    <span class="intervention-name">${alert.supervisorName}</span>
+                </div>
+                <div class="intervention-details">
+                    <div class="intervention-detail">${alert.message}</div>
+                    <div class="intervention-detail" style="font-size: 11px; opacity: 0.7;">${alert.chunkPreview?.substring(0, 100)}...</div>
+                </div>
+            </div>
+            `).join('') : `
             <div style="padding: 24px; text-align: center; color: var(--text-secondary);">
                 Nenhuma intervenção registrada nesta sessão
             </div>
+            `}
         </div>
         <div class="actions-bar">
             <button class="btn" onclick="send('exportHistory')">📤 Exportar histórico</button>

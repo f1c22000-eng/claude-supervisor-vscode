@@ -42,7 +42,15 @@ export const COMMANDS = {
     SHOW_SCOPE: 'claudeSupervisor.showScope',
     IMPORT_DOCS: 'claudeSupervisor.importDocs',
     OPEN_TERMINAL: 'claudeSupervisor.openTerminal',
-    CONFIGURE_TERMINAL_ENV: 'claudeSupervisor.configureTerminalEnv'
+    CONFIGURE_TERMINAL_ENV: 'claudeSupervisor.configureTerminalEnv',
+    LAUNCH_SUPERVISED_CLAUDE: 'claudeSupervisor.launchSupervisedClaude',
+    // Hook commands
+    BYPASS_STOP: 'claudeSupervisor.bypassStop',
+    SETUP_HOOKS: 'claudeSupervisor.setupHooks',
+    REMOVE_HOOKS: 'claudeSupervisor.removeHooks',
+    // Session commands
+    NEW_SESSION: 'claudeSupervisor.newSession',
+    RESET_COSTS: 'claudeSupervisor.resetCosts'
 };
 
 // ============================================

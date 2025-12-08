@@ -152,7 +152,20 @@ export class ProxyServer extends EventEmitter {
         const isStreamRequest = (req.headers['accept']?.includes('text/event-stream') ||
                                req.headers['content-type']?.includes('application/json')) ?? false;
 
+        // IMPORTANT: Log ALL incoming requests
+        console.log(`\n${'='.repeat(60)}`);
+        console.log(`[Proxy] #${requestId} INCOMING REQUEST`);
         console.log(`[Proxy] #${requestId} ${req.method} ${req.url}`);
+        console.log(`[Proxy] #${requestId} Headers: ${JSON.stringify(req.headers, null, 2).substring(0, 500)}`);
+        console.log(`${'='.repeat(60)}\n`);
+
+        // Emit event for logging in extension
+        this.emit('request_received', {
+            id: requestId,
+            method: req.method,
+            url: req.url,
+            timestamp: Date.now()
+        });
 
         // Emit request intercepted event
         this.emit('request_start', {
@@ -200,6 +213,20 @@ export class ProxyServer extends EventEmitter {
         });
     }
 
+    // Flag to control thinking injection
+    private injectThinking: boolean = true;
+    private thinkingBudget: number = 10000; // tokens for thinking
+
+    public setInjectThinking(enabled: boolean, budget: number = 10000): void {
+        this.injectThinking = enabled;
+        this.thinkingBudget = budget;
+        console.log(`[Proxy] Thinking injection: ${enabled ? 'ENABLED' : 'DISABLED'}, budget: ${budget}`);
+    }
+
+    public getThinkingSettings(): { enabled: boolean; budget: number } {
+        return { enabled: this.injectThinking, budget: this.thinkingBudget };
+    }
+
     private forwardRequest(
         originalReq: http.IncomingMessage,
         originalRes: http.ServerResponse,
@@ -223,6 +250,39 @@ export class ProxyServer extends EventEmitter {
 
         // Set correct host
         headers['host'] = this.config.targetHost;
+
+        // === INJECT EXTENDED THINKING ===
+        let modifiedBody = body;
+        if (isMessagesEndpoint && this.injectThinking && body.length > 0) {
+            try {
+                const bodyJson = JSON.parse(body.toString());
+
+                // Only inject if not already present and model supports it
+                if (!bodyJson.thinking) {
+                    bodyJson.thinking = {
+                        type: 'enabled',
+                        budget_tokens: this.thinkingBudget
+                    };
+
+                    modifiedBody = Buffer.from(JSON.stringify(bodyJson));
+
+                    // Update content-length header
+                    headers['content-length'] = modifiedBody.length.toString();
+
+                    console.log(`[Proxy] #${requestId} INJECTED THINKING: budget=${this.thinkingBudget} tokens`);
+
+                    this.emit('thinking_injected', {
+                        requestId,
+                        budget: this.thinkingBudget,
+                        model: bodyJson.model,
+                        timestamp: Date.now()
+                    });
+                }
+            } catch (e) {
+                // Not JSON or parse error - send original body
+                console.log(`[Proxy] #${requestId} Could not inject thinking: ${e}`);
+            }
+        }
 
         const options: https.RequestOptions = {
             hostname: this.config.targetHost,
@@ -271,9 +331,9 @@ export class ProxyServer extends EventEmitter {
             });
         });
 
-        // Send request body
-        if (body.length > 0) {
-            proxyReq.write(body);
+        // Send request body (modified with thinking if applicable)
+        if (modifiedBody.length > 0) {
+            proxyReq.write(modifiedBody);
         }
         proxyReq.end();
     }
@@ -289,14 +349,44 @@ export class ProxyServer extends EventEmitter {
     ): void {
         let buffer = '';
         let thinkingBuffer = '';
+        let responseBuffer = '';  // Buffer for response text (output)
         let messageId: string | undefined;
         let model: string | undefined;
+        let inputTokens = 0;
+        let outputTokens = 0;
 
         console.log(`[Proxy] #${requestId} Intercepting SSE stream...`);
+
+        // Emit SSE stream start
+        this.emit('sse_stream_start', { requestId, timestamp: Date.now() });
+
+        // Helper to flush response buffer
+        const flushResponse = () => {
+            if (responseBuffer.length > 0) {
+                this.emit('response_chunk', {
+                    id: `response-${requestId}-${Date.now()}`,
+                    content: responseBuffer,
+                    messageId,
+                    model,
+                    timestamp: Date.now(),
+                    isComplete: false
+                });
+                responseBuffer = '';
+            }
+        };
 
         proxyRes.on('data', (chunk: Buffer) => {
             const data = chunk.toString();
             buffer += data;
+
+            // DEBUG: Emit raw SSE data for logging
+            this.emit('sse_raw_data', {
+                requestId,
+                preview: data.substring(0, 200),
+                length: data.length,
+                hasThinking: data.includes('thinking'),
+                timestamp: Date.now()
+            });
 
             // Forward data to client immediately
             originalRes.write(chunk);
@@ -305,14 +395,21 @@ export class ProxyServer extends EventEmitter {
             const events = this.parseSSEBuffer(buffer);
             buffer = events.remaining;
 
+            // DEBUG: Log parsed events count
+            if (events.parsed.length > 0) {
+                console.log(`[Proxy] #${requestId} Parsed ${events.parsed.length} SSE events`);
+            }
+
             for (const event of events.parsed) {
                 this.processSSEEvent(event, requestId, {
                     messageId,
                     model,
                     thinkingBuffer,
+                    responseBuffer,
                     setMessageId: (id: string) => { messageId = id; },
                     setModel: (m: string) => { model = m; },
                     appendThinking: (text: string) => { thinkingBuffer += text; },
+                    appendResponse: (text: string) => { responseBuffer += text; },
                     flushThinking: () => {
                         if (thinkingBuffer.length > 0) {
                             this.emit('thinking_chunk', {
@@ -324,6 +421,15 @@ export class ProxyServer extends EventEmitter {
                             });
                             thinkingBuffer = '';
                         }
+                    },
+                    flushResponse: () => {
+                        if (responseBuffer.length >= 200) {
+                            flushResponse();
+                        }
+                    },
+                    setUsage: (input: number, output: number) => {
+                        inputTokens = input;
+                        outputTokens = output;
                     }
                 });
             }
@@ -340,6 +446,28 @@ export class ProxyServer extends EventEmitter {
                     timestamp: Date.now()
                 });
             }
+
+            // Flush remaining response and mark as complete
+            if (responseBuffer.length > 0) {
+                this.emit('response_chunk', {
+                    id: `response-${requestId}-${Date.now()}`,
+                    content: responseBuffer,
+                    messageId,
+                    model,
+                    timestamp: Date.now(),
+                    isComplete: true
+                });
+            }
+
+            // Emit response complete with full content
+            this.emit('response_complete', {
+                requestId,
+                messageId,
+                model,
+                inputTokens,
+                outputTokens,
+                timestamp: Date.now()
+            });
 
             console.log(`[Proxy] #${requestId} SSE stream ended`);
             this.emit('request_end', {
@@ -426,10 +554,14 @@ export class ProxyServer extends EventEmitter {
             messageId: string | undefined;
             model: string | undefined;
             thinkingBuffer: string;
+            responseBuffer: string;
             setMessageId: (id: string) => void;
             setModel: (m: string) => void;
             appendThinking: (text: string) => void;
+            appendResponse: (text: string) => void;
             flushThinking: () => void;
+            flushResponse: () => void;
+            setUsage: (input: number, output: number) => void;
         }
     ): void {
         try {
@@ -468,15 +600,19 @@ export class ProxyServer extends EventEmitter {
                     }
                 }
 
-                // Text delta - flush any pending thinking first
-                if (data.delta.type === 'text_delta') {
+                // Text delta - flush any pending thinking first, then accumulate response
+                if (data.delta.type === 'text_delta' && data.delta.text) {
                     context.flushThinking();
+                    context.appendResponse(data.delta.text);
 
                     this.emit('text_delta', {
                         text: data.delta.text,
                         index: data.index,
                         timestamp: Date.now()
                     });
+
+                    // Flush response buffer periodically
+                    context.flushResponse();
                 }
             }
 
@@ -487,6 +623,7 @@ export class ProxyServer extends EventEmitter {
 
             // Message delta - usage info
             if (data.type === 'message_delta' && data.usage) {
+                context.setUsage(data.usage.input_tokens || 0, data.usage.output_tokens || 0);
                 this.emit('usage', {
                     inputTokens: data.usage.input_tokens,
                     outputTokens: data.usage.output_tokens,

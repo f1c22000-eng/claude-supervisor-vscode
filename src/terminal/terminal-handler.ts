@@ -380,6 +380,42 @@ export class TerminalHandler {
     }
 
     // ========================================
+    // LAUNCH SUPERVISED CLAUDE CLI
+    // ========================================
+
+    /**
+     * Opens a new terminal with Claude CLI configured to use the supervisor proxy.
+     * This ensures all requests go through our proxy for monitoring.
+     */
+    public launchSupervisedClaude(): vscode.Terminal {
+        const proxyUrl = 'http://localhost:8888';
+
+        // Create a terminal with the proxy environment variable
+        const supervisedTerminal = vscode.window.createTerminal({
+            name: '🧠 Claude Supervisionado',
+            env: {
+                'ANTHROPIC_BASE_URL': proxyUrl
+            }
+        });
+
+        // Show the terminal
+        supervisedTerminal.show();
+
+        // Send the command to start Claude with --continue to resume last conversation
+        // Small delay to ensure terminal is ready
+        setTimeout(() => {
+            supervisedTerminal.sendText('claude --continue');
+        }, 500);
+
+        vscode.window.showInformationMessage(
+            `Claude CLI iniciado com proxy em ${proxyUrl}. Continuando última conversa.`,
+            'OK'
+        );
+
+        return supervisedTerminal;
+    }
+
+    // ========================================
     // CLEANUP
     // ========================================
 

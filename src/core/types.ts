@@ -93,6 +93,30 @@ export interface SupervisorResult {
     thinkingSnippet?: string;
     timestamp: number;
     processingTime: number;
+    // Confidence system
+    confidence?: number;           // 0-100, how confident the decision is
+    confidenceReason?: string;     // Why this confidence level
+    escalated?: boolean;           // Was this escalated to Sonnet?
+    escalationResult?: EscalationResult;  // Result from Sonnet if escalated
+}
+
+export interface EscalationResult {
+    model: string;                 // Which model analyzed (sonnet)
+    decision: 'confirm' | 'override' | 'uncertain';
+    confidence: number;
+    reason: string;
+    suggestedPattern?: LearnedPattern;  // Pattern to learn from this
+    processingTime: number;
+}
+
+export interface LearnedPattern {
+    id: string;
+    trigger: string;               // What triggered escalation
+    context: string;               // Context summary
+    correctDecision: 'alert' | 'ok';
+    confidence: number;
+    learnedAt: number;
+    usageCount: number;
 }
 
 export interface AnalysisResult {
@@ -100,6 +124,7 @@ export interface AnalysisResult {
     results: SupervisorResult[];
     totalTime: number;
     timestamp: number;
+    escalationCount?: number;      // How many results were escalated
 }
 
 // ============================================
@@ -310,4 +335,90 @@ export interface DocumentAnalysis {
     themes: string[];
     subThemes: Record<string, string[]>;
     rules: Rule[];
+}
+
+// ============================================
+// COST TRACKING INTERFACES
+// ============================================
+
+export interface CostSession {
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    startTime: number;
+}
+
+export interface CostDaily {
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    date: string;  // YYYY-MM-DD format
+}
+
+export interface CostTracking {
+    session: CostSession;
+    daily: CostDaily;
+}
+
+// ============================================
+// ALERT RESOLUTION INTERFACES
+// ============================================
+
+export enum AlertStatus {
+    PENDING = 'pending',
+    RESOLVED = 'resolved',
+    DISMISSED = 'dismissed'
+}
+
+export interface SupervisorAlert {
+    id: string;
+    supervisorId: string;
+    supervisorName: string;
+    ruleId: string;
+    severity: Severity;
+    message: string;
+    thinkingSnippet: string;
+    status: AlertStatus;
+    timestamp: number;
+    resolvedAt?: number;
+    resolutionEvidence?: string;
+}
+
+// ============================================
+// TASK COMPLETION DETECTION
+// ============================================
+
+export interface CompletionMatch {
+    itemId?: string;
+    itemName: string;
+    evidence: string;
+    confidence: number;  // 0-1
+    matchType: 'checkbox' | 'declaration' | 'code' | 'sequence' | 'global';
+}
+
+export interface ResponseChunk {
+    id: string;
+    content: string;
+    timestamp: number;
+    messageId?: string;
+    isComplete: boolean;
+}
+
+// ============================================
+// HOOK INTEGRATION
+// ============================================
+
+export interface StopCheckRequest {
+    stop_reason?: string;
+    current_output?: string;
+    conversation_id?: string;
+}
+
+export interface StopCheckResponse {
+    allow: boolean;
+    message?: string;
+    pendingItems?: string[];
+    pendingAlerts?: string[];
 }

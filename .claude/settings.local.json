@@ -11,7 +11,14 @@
       "Bash(npm run package:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat: implementação completa do Claude Supervisor v1.0.0\n\n### Core\n- Proxy reverso HTTP para interceptar Claude Code (porta 8888)\n- Parser SSE para extração de thinking_delta em tempo real\n- Cliente API Anthropic com retry, rate limiting e cache\n- Modelos e preços configuráveis via UI (Haiku, Sonnet, Opus)\n- Validação de API Key com erros específicos\n\n### Supervisores\n- Hierarquia: Router → Coordinator → Specialist\n- Supervisor de comportamento (redução de escopo, procrastinação)\n- Persistência de histórico de alertas\n- Carregamento de configuração YAML\n\n### Gestor de Escopo\n- Rastreamento de tarefas e itens\n- Detecção automática de escopo do thinking\n- Sistema de notas com buffer\n- Tracking de progresso\n\n### Interface\n- Sidebar com resumo do sistema\n- Painéis: Scope, Supervisors, Monitor, Config, Import\n- Terminal com comandos /nota, /escopo, /regra, /urgente\n- Status bar interativo\n\n### Importação\n- Suporte a PDF (pdf-parse)\n- Suporte a DOCX (mammoth)\n- Suporte a Markdown e YAML\n\n### Documentação\n- README completo com instruções\n- CHANGELOG, CONTRIBUTING, LICENSE\n- Help contextual integrado\n- Documentação técnica em /docs\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: adicionar painel de detalhes do supervisor\n\n- Criar supervisor-detail-panel.ts com:\n  - Informações do supervisor (status, tipo, pai, chamadas, alertas)\n  - Seção de keywords com botão editar\n  - Lista de regras com checkbox ativar/desativar\n  - Botões editar/excluir/pausar para cada regra\n  - Botão adicionar nova regra\n  - Histórico de alertas do supervisor\n- Integrar painel com supervisors-panel.ts\n- Clique em [►] agora abre painel de detalhes\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npm run package-webpack:*)",
+      "Bash(npm i:*)",
+      "Bash(code --list-extensions:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

@@ -16,8 +16,11 @@ import { InterceptorManager } from './interceptor';
 import { ScopeManager } from './scope';
 import { SupervisorHierarchy } from './supervisors/hierarchy';
 import { TerminalHandler } from './terminal';
-import { ConnectionStatus } from './core/types';
+import { ConnectionStatus, AlertStatus, Severity } from './core/types';
 import { initPatternLearner } from './core/pattern-learner';
+import { HookServer, HooksGenerator } from './hooks';
+import { costTracker } from './core/cost-tracker';
+import { scopeDetector } from './supervisors';
 
 // ============================================
 // GLOBAL STATE
@@ -30,7 +33,18 @@ let interceptorManager: InterceptorManager;
 let scopeManager: ScopeManager;
 let supervisorHierarchy: SupervisorHierarchy;
 let terminalHandler: TerminalHandler;
+let hookServer: HookServer;
+let hooksGenerator: HooksGenerator;
 let statusBarItem: vscode.StatusBarItem;
+let outputChannel: vscode.OutputChannel | undefined;
+
+// Helper function to log to output channel
+export function log(message: string): void {
+    const timestamp = new Date().toLocaleTimeString();
+    const formatted = `[${timestamp}] ${message}`;
+    console.log(formatted);
+    outputChannel?.appendLine(formatted);
+}
 
 // ============================================
 // ACTIVATION
@@ -38,7 +52,11 @@ let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext) {
     try {
-        console.log(`${EXTENSION_NAME} is activating...`);
+        // Create output channel for debugging
+        outputChannel = vscode.window.createOutputChannel('Claude Supervisor');
+        context.subscriptions.push(outputChannel);
+
+        log(`${EXTENSION_NAME} is activating...`);
 
         // Initialize configuration manager
         configManager.initialize(context);
@@ -69,6 +87,78 @@ export async function activate(context: vscode.ExtensionContext) {
         scopeManager = new ScopeManager(context);
         supervisorHierarchy = new SupervisorHierarchy();
         terminalHandler = new TerminalHandler(scopeManager, supervisorHierarchy);
+
+        // Initialize hook server for Claude Code integration
+        hookServer = new HookServer();
+        hooksGenerator = new HooksGenerator(context.extensionPath, hookServer.getPort());
+
+        // Check for stale session data and prompt user
+        const hasOldTask = scopeManager.getActiveTask() !== null;
+        const hasOldAlerts = supervisorHierarchy.getAlertHistory().length > 0;
+        const hasOldCosts = costTracker.getCosts().session.calls > 0;
+
+        if (hasOldTask || hasOldAlerts || hasOldCosts) {
+            // Prompt user to restore or start fresh
+            const choice = await vscode.window.showInformationMessage(
+                'Dados de sessão anterior detectados. Deseja restaurar ou iniciar nova sessão?',
+                'Restaurar',
+                'Nova Sessão'
+            );
+
+            if (choice === 'Nova Sessão') {
+                scopeManager.clearState();
+                scopeManager.resetCompletionDetector();
+                supervisorHierarchy.clearAlertHistory();
+                costTracker.resetSession();
+                interceptorManager.resetStats();
+                scopeDetector.clearBuffers(); // Clear AI detection buffers
+                log('Nova sessão iniciada - dados anteriores limpos');
+            } else {
+                log('Sessão anterior restaurada');
+            }
+        }
+
+        // Set up hook server callbacks
+        hookServer.setProgressCallback(() => {
+            const canComplete = scopeManager.canComplete();
+            return {
+                percentage: scopeManager.getProgress().percentage,
+                pendingItems: canComplete.pendingItems,
+                pendingCount: canComplete.pendingCount
+            };
+        });
+
+        hookServer.setAlertsCallback(() => {
+            const history = supervisorHierarchy.getAlertHistory();
+            // For now, consider recent alerts (last 5 minutes) as pending
+            const recentAlerts = history.filter(a =>
+                Date.now() - a.timestamp < 5 * 60 * 1000 && a.status === 'alert'
+            );
+            return {
+                alerts: recentAlerts.map(a => ({
+                    id: a.id,
+                    supervisorId: a.supervisorName,
+                    supervisorName: a.supervisorName,
+                    ruleId: '',
+                    severity: 'high' as any,
+                    message: a.message,
+                    thinkingSnippet: a.chunkPreview,
+                    status: 'pending' as any,
+                    timestamp: a.timestamp
+                })),
+                criticalCount: recentAlerts.filter(a => a.message.toLowerCase().includes('crítico')).length
+            };
+        });
+
+        // Hook server events
+        hookServer.on('stop_check', (data: any) => {
+            log(`🛑 STOP CHECK: allow=${data.response.allow}, message=${data.response.message}`);
+        });
+
+        hookServer.on('bypass_requested', () => {
+            log('⚠️ BYPASS REQUESTED: Next stop will be allowed');
+            vscode.window.showWarningMessage('Bypass ativado: próxima parada será permitida');
+        });
 
         // Initialize pattern learner for automatic behavior pattern learning
         const patternLearner = initPatternLearner(context);
@@ -131,45 +221,116 @@ export async function activate(context: vscode.ExtensionContext) {
             })
         );
 
+        // DEBUG: Log proxy events
+        interceptorManager.on('proxy_started', (info: any) => {
+            log(`🚀 PROXY STARTED: ${info.host}:${info.port}`);
+            outputChannel?.show(true); // Show the output channel
+        });
+
+        // Log ALL requests that arrive at the proxy
+        interceptorManager.on('request_received', (data: any) => {
+            log(`📨 REQUEST RECEIVED: ${data.method} ${data.url}`);
+        });
+
+        // Log SSE stream events
+        interceptorManager.on('sse_stream_start', (data: any) => {
+            log(`🌊 SSE STREAM STARTED: request #${data.requestId}`);
+        });
+
+        interceptorManager.on('sse_raw_data', (data: any) => {
+            log(`📦 SSE DATA: ${data.length} bytes, hasThinking=${data.hasThinking}`);
+            // Always show preview to understand what's coming
+            log(`   Preview: ${data.preview?.replace(/\n/g, ' ').substring(0, 150)}`);
+        });
+
+        interceptorManager.on('thinking_injected', (data: any) => {
+            log(`💉 THINKING INJECTED: model=${data.model}, budget=${data.budget} tokens`);
+        });
+
+        interceptorManager.on('request_intercepted', (data: any) => {
+            log(`📥 REQUEST INTERCEPTED: ${data.data?.substring(0, 100)}...`);
+        });
+
+        interceptorManager.on('thinking_delta', (data: any) => {
+            log(`💭 THINKING DELTA: ${data.text?.substring(0, 50)}...`);
+        });
+
+        interceptorManager.on('message_start', (data: any) => {
+            log(`📨 MESSAGE START: ${JSON.stringify(data)}`);
+        });
+
+        interceptorManager.on('usage', (data: any) => {
+            log(`📊 USAGE: input=${data.inputTokens}, output=${data.outputTokens}`);
+        });
+
         // Connect interceptor to supervisor hierarchy
         interceptorManager.on('thinking_chunk', async (chunk: any) => {
             try {
+                // DEBUG: Log when we receive a thinking chunk
+                log(`🧠 THINKING CHUNK RECEIVED: ${chunk.content?.substring(0, 100)}...`);
+
                 const task = scopeManager.getActiveTask();
                 const progress = scopeManager.getProgress();
 
-                // === AUTOMATIC SCOPE DETECTION ===
-                // Try to extract scope information from the thinking
-                if (chunk.content) {
-                    const scopeInfo = scopeManager.extractScopeFromMessage(chunk.content);
-                    if (scopeInfo && scopeInfo.items && scopeInfo.items.length > 0) {
-                        // If we found items and no active task, create one with the items
-                        if (!task) {
-                            scopeManager.createTask(
-                                `Tarefa detectada: ${scopeInfo.items.length} itens`,
-                                scopeInfo.items
-                            );
-                            console.log(`[Scope] Auto-detected task with ${scopeInfo.items.length} items`);
-                        } else {
-                            // If task exists, add items to it
-                            for (const item of scopeInfo.items) {
-                                scopeManager.addItem(item);
+                // === AUTOMATIC SCOPE DETECTION (AI-powered) ===
+                // Use Haiku to detect scope items from thinking
+                if (chunk.content && chunk.content.length > 20) {
+                    try {
+                        const scopeResult = await scopeDetector.detectScope(chunk.content);
+
+                        if (scopeResult.items.length > 0 && scopeResult.confidence >= 0.5) {
+                            log(`🔍 SCOPE DETECTED: ${scopeResult.items.length} items (confidence: ${(scopeResult.confidence * 100).toFixed(0)}%)`);
+
+                            // If no active task, create one with the items
+                            if (!task) {
+                                scopeManager.createTask(
+                                    `Tarefa detectada: ${scopeResult.items.length} itens`,
+                                    scopeResult.items
+                                );
+                                log(`[Scope] Auto-detected task with ${scopeResult.items.length} items`);
+                            } else {
+                                // If task exists, add new items to it
+                                const existingItems = task.items.map(i => i.name.toLowerCase());
+                                for (const item of scopeResult.items) {
+                                    if (!existingItems.includes(item.toLowerCase())) {
+                                        scopeManager.addItem(item);
+                                    }
+                                }
+                                log(`[Scope] Auto-detected items added to existing task`);
                             }
-                            console.log(`[Scope] Auto-detected ${scopeInfo.items.length} items added to existing task`);
+
+                            // Refresh sidebar
+                            sidebarProvider?.refreshAsync();
                         }
+                    } catch (scopeError) {
+                        console.error('[Scope] Error in AI scope detection:', scopeError);
                     }
                 }
 
                 // Run supervisor analysis on the thinking chunk
                 const result = await supervisorHierarchy.analyzeThinking(chunk, {
                     originalRequest: task?.title || 'Tarefa não definida',
-                    progress: `${progress.percentage}%`
+                    progress: `${progress.percentage}`,
+                    hasActiveTask: task !== null
                 });
+
+                // Log escalation info
+                if (result.escalationCount && result.escalationCount > 0) {
+                    log(`🔄 ESCALATION: ${result.escalationCount} análise(s) escalada(s) para Sonnet`);
+                }
 
                 // Handle alerts
                 for (const supervisorResult of result.results) {
                     if (supervisorResult.status === 'alert') {
+                        const confidenceStr = supervisorResult.confidence
+                            ? ` [${supervisorResult.confidence}%]`
+                            : '';
+                        const escalatedStr = supervisorResult.escalated
+                            ? ' [Escalado]'
+                            : '';
+
                         vscode.window.showWarningMessage(
-                            `⚠️ ${supervisorResult.supervisorName}: ${supervisorResult.message}`,
+                            `⚠️ ${supervisorResult.supervisorName}${confidenceStr}${escalatedStr}: ${supervisorResult.message}`,
                             'Ver Detalhes'
                         ).then(selection => {
                             if (selection === 'Ver Detalhes') {
@@ -184,6 +345,88 @@ export async function activate(context: vscode.ExtensionContext) {
         });
         console.log('Interceptor connected to supervisors');
 
+        // Connect interceptor to scope manager for output processing (auto-completion)
+        interceptorManager.on('response_chunk', async (chunk: any) => {
+            try {
+                log(`📝 RESPONSE CHUNK: ${chunk.content?.substring(0, 80)}...`);
+
+                // Process output to detect completed items using AI
+                if (chunk.content && chunk.content.length > 10) {
+                    const task = scopeManager.getActiveTask();
+
+                    if (task && task.items.length > 0) {
+                        try {
+                            // Use AI-powered completion detection
+                            const completionResult = await scopeDetector.detectCompletion(
+                                chunk.content,
+                                task.items
+                            );
+
+                            if (completionResult.completedItems.length > 0 || completionResult.isGlobalComplete) {
+                                log(`✅ AI COMPLETION DETECTED: ${completionResult.completedItems.length} items, global=${completionResult.isGlobalComplete}`);
+
+                                // Convert to matches and mark items complete
+                                const matches = scopeDetector.convertToMatches(completionResult, task.items);
+
+                                for (const match of matches) {
+                                    if (match.itemId) {
+                                        scopeManager.markItemComplete(match.itemId, match.evidence);
+                                    }
+                                }
+
+                                if (matches.length > 0) {
+                                    log(`✅ MARKED COMPLETE: ${matches.map(m => m.itemName).join(', ')}`);
+                                    // Update sidebar
+                                    sidebarProvider?.refreshAsync();
+                                }
+                            }
+                        } catch (completionError) {
+                            // Log error and continue - don't fallback to regex (which fails anyway)
+                            console.error('[Completion] AI detection failed, skipping chunk:', completionError);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing response chunk:', error);
+            }
+        });
+
+        interceptorManager.on('response_complete', (data: any) => {
+            log(`📋 RESPONSE COMPLETE: ${data.inputTokens} in, ${data.outputTokens} out`);
+
+            // Track costs
+            if (data.inputTokens > 0 || data.outputTokens > 0) {
+                costTracker.trackCall(
+                    data.model || 'claude-3-5-sonnet-20241022',
+                    data.inputTokens || 0,
+                    data.outputTokens || 0
+                );
+
+                const costs = costTracker.getFormattedCosts();
+                log(`💰 COSTS: Session=${costs.session}, Today=${costs.daily}`);
+            }
+
+            // Log final progress
+            const progress = scopeManager.getProgress();
+            log(`📊 PROGRESS: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
+
+            // Update sidebar with new costs
+            sidebarProvider?.refreshAsync();
+        });
+
+        // Cost alerts
+        costTracker.on('cost_alert', (data: any) => {
+            log(`💸 COST ALERT: ${data.message}`);
+            vscode.window.showWarningMessage(`💰 ${data.message}`);
+        });
+
+        costTracker.on('cost_limit', (data: any) => {
+            log(`🚨 COST LIMIT: ${data.message}`);
+            vscode.window.showErrorMessage(`🚨 ${data.message}`);
+        });
+
+        console.log('Response processing connected to scope manager');
+
         // Set up terminal urgent callback
         terminalHandler.onUrgent((message) => {
             vscode.window.showWarningMessage(`URGENTE: ${message}`, 'OK');
@@ -194,7 +437,8 @@ export async function activate(context: vscode.ExtensionContext) {
             interceptor: interceptorManager,
             scope: scopeManager,
             supervisors: supervisorHierarchy,
-            api: anthropicClient
+            api: anthropicClient,
+            hooks: hookServer
         });
         console.log('Sidebar provider created');
 
@@ -433,6 +677,76 @@ function registerCommands(context: vscode.ExtensionContext) {
             await configureTerminalEnvironment(true); // Force reconfigure
         })
     );
+
+    // Launch Supervised Claude CLI
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.LAUNCH_SUPERVISED_CLAUDE, () => {
+            terminalHandler.launchSupervisedClaude();
+        })
+    );
+
+    // Bypass next stop check (for hooks)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.BYPASS_STOP, () => {
+            hookServer.allowNextStop();
+            vscode.window.showInformationMessage('Bypass ativado: próxima parada será permitida');
+        })
+    );
+
+    // Setup hooks for workspace
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.SETUP_HOOKS, async () => {
+            const success = await hooksGenerator.generateHooksConfig();
+            if (success) {
+                vscode.window.showInformationMessage('Hooks configurados com sucesso! Reinicie o Claude Code para ativar.');
+            } else {
+                vscode.window.showErrorMessage('Falha ao configurar hooks. Verifique o workspace.');
+            }
+        })
+    );
+
+    // Remove hooks from workspace
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.REMOVE_HOOKS, async () => {
+            const success = await hooksGenerator.removeHooksConfig();
+            if (success) {
+                vscode.window.showInformationMessage('Hooks removidos. Reinicie o Claude Code para desativar.');
+            } else {
+                vscode.window.showErrorMessage('Falha ao remover hooks.');
+            }
+        })
+    );
+
+    // New session (clear tasks and alerts, keep costs)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.NEW_SESSION, () => {
+            scopeManager.clearState();
+            scopeManager.resetCompletionDetector();
+            supervisorHierarchy.clearAlertHistory();
+            scopeDetector.clearBuffers(); // Clear AI detection buffers
+            vscode.window.showInformationMessage('Nova sessão iniciada. Tarefas e alertas limpos.');
+            sidebarProvider.refresh();
+        })
+    );
+
+    // Reset costs (session only, keeps daily)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.RESET_COSTS, async () => {
+            const choice = await vscode.window.showQuickPick(
+                ['Resetar Sessão', 'Resetar Tudo (Sessão + Dia)'],
+                { placeHolder: 'O que deseja resetar?' }
+            );
+
+            if (choice === 'Resetar Sessão') {
+                costTracker.resetSession();
+                vscode.window.showInformationMessage('Custos da sessão resetados.');
+            } else if (choice === 'Resetar Tudo (Sessão + Dia)') {
+                costTracker.resetAll();
+                vscode.window.showInformationMessage('Todos os custos resetados.');
+            }
+            sidebarProvider.refresh();
+        })
+    );
 }
 
 // ============================================
@@ -464,6 +778,17 @@ async function toggleSystem(activate: boolean) {
 
         // Start interceptor
         const started = await interceptorManager.start();
+
+        // Start hook server for Claude Code integration
+        const hookStarted = await hookServer.start();
+        if (hookStarted) {
+            // Update hooks generator with actual port
+            hooksGenerator.setPort(hookServer.getPort());
+            // Generate hooks.json for workspace
+            await hooksGenerator.generateHooksConfig();
+            console.log(`[Extension] Hook server started on port ${hookServer.getPort()}`);
+        }
+
         if (started) {
             isActive = true;
             updateStatusBar(ConnectionStatus.CONNECTED);
@@ -477,6 +802,7 @@ async function toggleSystem(activate: boolean) {
         }
     } else {
         interceptorManager.stop();
+        await hookServer.stop();
         isActive = false;
         updateStatusBar(ConnectionStatus.DISCONNECTED);
         vscode.window.showInformationMessage('Claude Supervisor desativado');

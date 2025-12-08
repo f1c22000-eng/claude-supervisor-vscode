@@ -14,10 +14,12 @@ import {
     Note,
     ScopeState,
     HistoryEntry,
-    ScopeEvent
+    ScopeEvent,
+    CompletionMatch
 } from '../core/types';
 import { configManager } from '../core/config';
 import { TIMEOUTS } from '../core/constants';
+import { TaskCompletionDetector } from './completion-detector';
 
 // ============================================
 // SCOPE MANAGER
@@ -27,6 +29,7 @@ export class ScopeManager extends EventEmitter {
     private context: vscode.ExtensionContext;
     private state: ScopeState;
     private noteTimer: NodeJS.Timeout | null = null;
+    private completionDetector: TaskCompletionDetector;
 
     /**
      * Normalize string: lowercase, remove accents
@@ -42,6 +45,15 @@ export class ScopeManager extends EventEmitter {
         super();
         this.context = context;
         this.state = this.loadState();
+        this.completionDetector = new TaskCompletionDetector();
+
+        // Listen for completion detection events
+        this.completionDetector.on('completion_detected', (match: CompletionMatch) => {
+            console.log(`[ScopeManager] Completion detected: ${match.itemName} (${match.matchType}, confidence: ${match.confidence})`);
+            if (match.itemId) {
+                this.markItemComplete(match.itemId, match.evidence);
+            }
+        });
     }
 
     // ========================================
@@ -214,6 +226,93 @@ export class ScopeManager extends EventEmitter {
             r => r.id !== requirementId
         );
         this.saveState();
+    }
+
+    // ========================================
+    // OUTPUT PROCESSING & AUTO-COMPLETION
+    // ========================================
+
+    /**
+     * Process Claude's output to detect completed items
+     */
+    public processOutput(output: string): CompletionMatch[] {
+        if (!this.state.activeTask) return [];
+
+        const matches = this.completionDetector.processOutput(
+            output,
+            this.state.activeTask.items
+        );
+
+        // Emit event for each detected completion
+        for (const match of matches) {
+            this.emit('task_completed', {
+                item: match.itemName,
+                evidence: match.evidence,
+                matchType: match.matchType,
+                confidence: match.confidence
+            });
+        }
+
+        return matches;
+    }
+
+    /**
+     * Mark item as complete with evidence
+     */
+    public markItemComplete(itemId: string, evidence?: string): boolean {
+        if (!this.state.activeTask) return false;
+
+        const item = this.state.activeTask.items.find(i => i.id === itemId);
+        if (!item || item.status === ItemStatus.COMPLETED) return false;
+
+        item.status = ItemStatus.COMPLETED;
+        this.addHistoryEntry('item_completed', `Item concluído: ${item.name}${evidence ? ` (${evidence.substring(0, 50)}...)` : ''}`);
+        this.saveState();
+        this.emitEvent('progress_changed', this.getProgress());
+
+        console.log(`[ScopeManager] Item marked complete: ${item.name}`);
+
+        // Check if all items are done
+        const progress = this.getProgress();
+        if (progress.percentage === 100) {
+            this.emit('all_items_complete', {
+                task: this.state.activeTask.title,
+                completedItems: this.state.activeTask.items.length
+            });
+        }
+
+        return true;
+    }
+
+    /**
+     * Get pending items (not completed)
+     */
+    public getPendingItems(): TaskItem[] {
+        if (!this.state.activeTask) return [];
+        return this.state.activeTask.items.filter(i => i.status !== ItemStatus.COMPLETED);
+    }
+
+    /**
+     * Check if task can be considered complete
+     */
+    public canComplete(): { canComplete: boolean; pendingItems: string[]; pendingCount: number } {
+        if (!this.state.activeTask) {
+            return { canComplete: true, pendingItems: [], pendingCount: 0 };
+        }
+
+        const pending = this.getPendingItems();
+        return {
+            canComplete: pending.length === 0,
+            pendingItems: pending.map(i => i.name),
+            pendingCount: pending.length
+        };
+    }
+
+    /**
+     * Reset completion detector for new session
+     */
+    public resetCompletionDetector(): void {
+        this.completionDetector.reset();
     }
 
     // ========================================
@@ -418,6 +517,62 @@ export class ScopeManager extends EventEmitter {
         let match;
         while ((match = listPattern.exec(message)) !== null) {
             items.push(match[1].trim());
+        }
+
+        // Extract letter-prefixed lists: "a) item" or "A. item" or "a - item"
+        const letterPattern = /(?:^|\n)\s*([a-zA-Z])\s*[.):\-]\s*(.+)/g;
+        while ((match = letterPattern.exec(message)) !== null) {
+            const item = match[2].trim();
+            if (item.length > 2 && !items.includes(item)) {
+                items.push(item);
+            }
+        }
+
+        // Extract inline comma-separated uppercase letters: "A, B, C, D, E"
+        // Common pattern when Claude lists items superficially
+        const inlineLetterPattern = /\b([A-Z])\s*,\s*([A-Z])\s*,\s*([A-Z])(?:\s*,\s*([A-Z]))?(?:\s*,\s*([A-Z]))?\b/g;
+        while ((match = inlineLetterPattern.exec(message)) !== null) {
+            // Found a letter list - add each letter as a placeholder item
+            const letters = [match[1], match[2], match[3], match[4], match[5]].filter(Boolean);
+            for (const letter of letters) {
+                const itemName = `Item ${letter}`;
+                if (!items.includes(itemName)) {
+                    items.push(itemName);
+                }
+            }
+        }
+
+        // Extract "1.A, 2.B, 3.C" pattern (number.letter format)
+        const numberLetterPattern = /\b(\d+)\.([A-Z])\b/gi;
+        const numberLetterItems: string[] = [];
+        while ((match = numberLetterPattern.exec(message)) !== null) {
+            const num = match[1];
+            const letter = match[2].toUpperCase();
+            const itemName = `Item ${num}.${letter}`;
+            if (!numberLetterItems.includes(itemName)) {
+                numberLetterItems.push(itemName);
+            }
+        }
+        // Only add if we found at least 2 items in this pattern
+        if (numberLetterItems.length >= 2) {
+            for (const item of numberLetterItems) {
+                if (!items.includes(item)) {
+                    items.push(item);
+                }
+            }
+        }
+
+        // Detect "5 items" or "lista de 5" patterns (count without actual items = suspicious)
+        const countPattern = /(?:lista\s+(?:de|com)\s+)?(\d+)\s*(?:itens?|items?|coisas?|elementos?|pontos?)/i;
+        const countMatch = message.match(countPattern);
+        if (countMatch && items.length === 0) {
+            // Claude mentioned a count but no actual items - flag this
+            const count = parseInt(countMatch[1], 10);
+            if (count > 0 && count <= 20) {
+                for (let i = 1; i <= count; i++) {
+                    items.push(`Item ${i} (pendente definição)`);
+                }
+            }
         }
 
         return { numbers, hasAllKeyword, items };

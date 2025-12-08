@@ -4,12 +4,14 @@
 
 import * as vscode from 'vscode';
 import { ConnectionStatus, ApiStatus, WebViewState } from '../core/types';
-import { COMMANDS, USD_TO_BRL } from '../core/constants';
+import { COMMANDS } from '../core/constants';
 import { InterceptorManager } from '../interceptor';
 import { ScopeManager } from '../scope';
 import { SupervisorHierarchy } from '../supervisors/hierarchy';
 import { AnthropicClient } from '../core/api';
+import { HookServer } from '../hooks';
 import { configManager } from '../core/config';
+import { costTracker } from '../core/cost-tracker';
 
 // ============================================
 // SIDEBAR PROVIDER
@@ -23,6 +25,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         scope: ScopeManager;
         supervisors: SupervisorHierarchy;
         api: AnthropicClient;
+        hooks: HookServer;
     };
 
     constructor(
@@ -32,6 +35,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             scope: ScopeManager;
             supervisors: SupervisorHierarchy;
             api: AnthropicClient;
+            hooks: HookServer;
         }
     ) {
         this.extensionUri = extensionUri;
@@ -42,6 +46,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         this.managers.interceptor.on('stats_update', () => this.refresh());
         this.managers.scope.on('scope_event', () => this.refresh());
         this.managers.supervisors.on('analysis_complete', () => this.refresh());
+        this.managers.hooks.on('bypass_changed', () => this.refresh());
 
         // Listen for config changes (API key, models, etc.)
         configManager.onConfigChange(() => this.refresh());
@@ -225,6 +230,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             case 'toggle':
                 vscode.commands.executeCommand(COMMANDS.TOGGLE);
                 break;
+            case 'launchSupervisedClaude':
+                vscode.commands.executeCommand(COMMANDS.LAUNCH_SUPERVISED_CLAUDE);
+                break;
+            case 'newSession':
+                vscode.commands.executeCommand(COMMANDS.NEW_SESSION);
+                break;
+            case 'resetCosts':
+                vscode.commands.executeCommand(COMMANDS.RESET_COSTS);
+                break;
+            case 'bypassStop':
+                vscode.commands.executeCommand(COMMANDS.BYPASS_STOP);
+                break;
         }
     }
 
@@ -240,7 +257,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     private renderHtml(webview: vscode.Webview, state: WebViewState): string {
         const progress = this.managers.scope.getProgress();
-        const apiCostBRL = (state.apiStats.today.totalCost * USD_TO_BRL).toFixed(2);
+        const costs = costTracker.getCosts();
+        const sessionCostBRL = costs.session.cost.toFixed(2);
+        const dailyCostBRL = costs.daily.cost.toFixed(2);
+        const bypassActive = this.managers.hooks.isBypassActive();
 
         return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -490,8 +510,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 <span>${this.getApiStatusText(state.apiStatus)}</span>
             </div>
             <div class="stat-row">
-                <span class="stat-label">Uso hoje</span>
-                <span>${state.apiStats.today.callCount} chamadas (~R$ ${apiCostBRL})</span>
+                <span class="stat-label">Sessão</span>
+                <span>${costs.session.calls} chamadas (~R$ ${sessionCostBRL})</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Hoje</span>
+                <span>${costs.daily.calls} chamadas (~R$ ${dailyCostBRL})</span>
             </div>
         </div>
     </div>
@@ -513,17 +537,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     <div class="progress-fill" style="width: ${progress.percentage}%"></div>
                 </div>
                 <div class="stat-row">
-                    <span class="stat-label">Progresso</span>
+                    <span class="stat-label">Itens</span>
                     <span>${progress.completed}/${progress.total} (${progress.percentage}%)</span>
                 </div>
+                ${state.activeTask.requirements.length > 0 ? `
                 <div class="stat-row">
                     <span class="stat-label">Requisitos</span>
-                    <span>${state.activeTask.requirements.length} itens</span>
+                    <span>${state.activeTask.requirements.filter(r => r.completed).length}/${state.activeTask.requirements.length}</span>
                 </div>
+                ` : ''}
+                ${state.activeTask.notes.filter(n => !n.action).length > 0 ? `
                 <div class="stat-row">
-                    <span class="stat-label">Notas pendentes</span>
-                    <span>${state.activeTask.notes.filter(n => !n.action).length}</span>
+                    <span class="stat-label">Notas</span>
+                    <span>${state.activeTask.notes.filter(n => !n.action).length} pendentes</span>
                 </div>
+                ` : ''}
             ` : `
                 <div style="color: var(--text-secondary); text-align: center; padding: 8px;">
                     Nenhuma tarefa ativa
@@ -600,11 +628,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         </div>
     </div>
 
+    <div class="launch-section" style="margin-bottom: 10px;">
+        <button class="action-btn launch-claude-btn" onclick="send('launchSupervisedClaude')" style="width: 100%; background: linear-gradient(135deg, #007ACC 0%, #00B4D8 100%); font-weight: bold; padding: 12px;">
+            🧠 Iniciar Claude Supervisionado
+        </button>
+        <div style="font-size: 11px; color: var(--text-secondary); text-align: center; margin-top: 4px;">
+            Ctrl+Shift+C
+        </div>
+    </div>
+
     <div class="actions">
         <button class="action-btn" onclick="send('addNote')">+ Nota</button>
         <button class="action-btn" onclick="send('addRule')">+ Regra</button>
         <button class="action-btn" onclick="send('importDocs')">📄 Importar</button>
         <button class="action-btn" onclick="send('toggle')">${state.connectionStatus === ConnectionStatus.CONNECTED ? '⏸️ Pausar' : '▶️ Retomar'}</button>
+    </div>
+    <div class="actions" style="margin-top: 8px;">
+        <button class="action-btn" onclick="send('newSession')" title="Limpar tarefas e alertas">🔄 Nova Sessão</button>
+        <button class="action-btn" onclick="send('resetCosts')" title="Resetar custos">💰 Custos</button>
+        <button class="action-btn" onclick="send('bypassStop')" title="${bypassActive ? 'Bypass ativo - próxima parada será permitida' : 'Ativar bypass para próxima parada'}" style="${bypassActive ? 'background: var(--error); color: white;' : ''}">${bypassActive ? '🔴 BYPASS' : '⚠️ Bypass'}</button>
     </div>
 
     <script>

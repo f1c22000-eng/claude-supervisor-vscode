@@ -103,6 +103,31 @@
       {
         "command": "claudeSupervisor.configureTerminalEnv",
         "title": "Claude Supervisor: Configure Terminal Environment"
+      },
+      {
+        "command": "claudeSupervisor.launchSupervisedClaude",
+        "title": "Claude Supervisor: 🧠 Iniciar Claude Supervisionado",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "claudeSupervisor.bypassStop",
+        "title": "Claude Supervisor: Bypass Stop Check"
+      },
+      {
+        "command": "claudeSupervisor.setupHooks",
+        "title": "Claude Supervisor: Setup Hooks"
+      },
+      {
+        "command": "claudeSupervisor.removeHooks",
+        "title": "Claude Supervisor: Remove Hooks"
+      },
+      {
+        "command": "claudeSupervisor.newSession",
+        "title": "Claude Supervisor: Nova Sessão"
+      },
+      {
+        "command": "claudeSupervisor.resetCosts",
+        "title": "Claude Supervisor: Resetar Custos"
       }
     ],
     "keybindings": [
@@ -130,6 +155,11 @@
         "command": "claudeSupervisor.openTerminal",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t"
+      },
+      {
+        "command": "claudeSupervisor.launchSupervisedClaude",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
       }
     ],
     "configuration": {

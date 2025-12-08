@@ -7,3 +7,4 @@ export { TaskManager } from './task';
 export { RequirementManager } from './requirement';
 export { NoteManager } from './note';
 export { ProgressTracker } from './progress-tracker';
+export { TaskCompletionDetector } from './completion-detector';

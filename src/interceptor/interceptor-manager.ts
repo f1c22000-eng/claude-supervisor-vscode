@@ -64,23 +64,52 @@ export class InterceptorManager extends EventEmitter {
     // ========================================
 
     private setupProxyEvents(): void {
-        // SSE data from proxy
-        this.proxyServer.on('sse_data', (data: { hostname: string; data: string; timestamp: number }) => {
-            // Feed to thinking extractor
-            this.thinkingExtractor.processData(data.data);
+        // === CRITICAL: Forward thinking_chunk from proxy to extension ===
+        // The proxy already parses SSE and extracts thinking.
+        // We just need to forward these chunks for analysis.
+        this.proxyServer.on('thinking_chunk', (chunk: any) => {
+            this.state.chunksProcessed++;
+            this.state.lastChunk = chunk;
+            console.log(`[InterceptorManager] Forwarding thinking_chunk: ${chunk.content?.substring(0, 50)}...`);
+            this.emit('thinking_chunk', chunk);
         });
 
-        // Request intercepted
-        this.proxyServer.on('request_intercepted', (data: { hostname: string; data: string; timestamp: number }) => {
-            this.emit('request_intercepted', data);
+        // Forward thinking_delta for real-time display
+        this.proxyServer.on('thinking_delta', (data: any) => {
+            this.emit('thinking_delta', data);
         });
 
-        // Response data
-        this.proxyServer.on('response_data', (data: { url: string; data: string; timestamp: number }) => {
-            // Feed to thinking extractor if it looks like SSE
-            if (data.data.includes('event:') || data.data.includes('data:')) {
-                this.thinkingExtractor.processData(data.data);
-            }
+        // Forward message events
+        this.proxyServer.on('message_start', (data: any) => {
+            console.log('[InterceptorManager] Message started');
+            this.emit('message_start', data);
+        });
+
+        this.proxyServer.on('message_stop', (data: any) => {
+            console.log('[InterceptorManager] Message stopped');
+            this.emit('message_stop', data);
+        });
+
+        // Forward text_delta for response monitoring
+        this.proxyServer.on('text_delta', (data: any) => {
+            this.emit('response_delta', data);
+        });
+
+        // Forward usage info
+        this.proxyServer.on('usage', (data: any) => {
+            this.emit('usage', data);
+        });
+
+        // Forward response chunks for completion detection
+        this.proxyServer.on('response_chunk', (chunk: any) => {
+            console.log(`[InterceptorManager] Response chunk: ${chunk.content?.substring(0, 50)}...`);
+            this.emit('response_chunk', chunk);
+        });
+
+        // Forward response complete
+        this.proxyServer.on('response_complete', (data: any) => {
+            console.log(`[InterceptorManager] Response complete: ${data.inputTokens} in, ${data.outputTokens} out`);
+            this.emit('response_complete', data);
         });
 
         // Proxy errors
@@ -93,6 +122,26 @@ export class InterceptorManager extends EventEmitter {
         this.proxyServer.on('started', (info: { port: number; host: string }) => {
             console.log(`Proxy started on ${info.host}:${info.port}`);
             this.emit('proxy_started', info);
+        });
+
+        // Request received (any request)
+        this.proxyServer.on('request_received', (data: any) => {
+            this.emit('request_received', data);
+        });
+
+        // SSE stream started
+        this.proxyServer.on('sse_stream_start', (data: any) => {
+            this.emit('sse_stream_start', data);
+        });
+
+        // SSE raw data (for debugging)
+        this.proxyServer.on('sse_raw_data', (data: any) => {
+            this.emit('sse_raw_data', data);
+        });
+
+        // Thinking injection notification
+        this.proxyServer.on('thinking_injected', (data: any) => {
+            this.emit('thinking_injected', data);
         });
 
         // Proxy stopped
@@ -319,6 +368,12 @@ export class InterceptorManager extends EventEmitter {
 
     public getChunksProcessed(): number {
         return this.state.chunksProcessed;
+    }
+
+    public resetStats(): void {
+        this.state.chunksProcessed = 0;
+        this.state.lastChunk = undefined;
+        this.emit('stats_update', this.state);
     }
 
     public getLastChunk(): ThinkingChunk | undefined {

@@ -18,9 +18,11 @@ import {
     SupervisorType,
     SupervisorResult,
     ThinkingChunk,
-    AnalysisResult
+    AnalysisResult,
+    EscalationResult
 } from '../core/types';
 import { TIMEOUTS, LIMITS } from '../core/constants';
+import { escalationManager } from './escalation-manager';
 
 // Alert history entry type
 interface AlertHistoryEntry {
@@ -309,10 +311,11 @@ export class SupervisorHierarchy extends EventEmitter {
 
     public async analyzeThinking(
         chunk: ThinkingChunk,
-        context?: { originalRequest?: string; progress?: string }
+        context?: { originalRequest?: string; progress?: string; hasActiveTask?: boolean }
     ): Promise<AnalysisResult> {
         const startTime = Date.now();
         const results: SupervisorResult[] = [];
+        let escalationCount = 0;
 
         // Add to queue if already analyzing
         if (this.isAnalyzing) {
@@ -351,17 +354,82 @@ export class SupervisorHierarchy extends EventEmitter {
                 }
             }
 
+            // === CONFIDENCE & ESCALATION SYSTEM ===
+            // Calculate confidence for each result and escalate if needed
+            const taskProgress = context?.progress ? parseInt(context.progress) : 0;
+            const recentAlerts = this.alertHistory.filter(
+                a => Date.now() - a.timestamp < 5 * 60 * 1000
+            ).length;
+
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+
+                // Calculate confidence based on context
+                const { confidence, reason } = escalationManager.calculateConfidence(
+                    result,
+                    {
+                        thinkingChunk: chunk.content,
+                        hasActiveTask: context?.hasActiveTask ?? false,
+                        taskProgress,
+                        recentAlerts,
+                        matchedKeywords: this.extractMatchedKeywords(chunk.content, result)
+                    }
+                );
+
+                result.confidence = confidence;
+                result.confidenceReason = reason;
+
+                // Check if escalation is needed (low confidence alerts)
+                if (result.status === 'alert' && escalationManager.shouldEscalate(confidence)) {
+                    console.log(`[Hierarchy] Escalating to Sonnet: confidence=${confidence}%, supervisor=${result.supervisorName}`);
+
+                    try {
+                        const escalationResult = await escalationManager.escalateToSonnet(
+                            result,
+                            {
+                                thinkingChunk: chunk.content,
+                                originalRequest: context?.originalRequest,
+                                taskProgress,
+                                recentHistory: this.alertHistory.slice(-5).map(a => a.message)
+                            }
+                        );
+
+                        result.escalated = true;
+                        result.escalationResult = escalationResult;
+                        escalationCount++;
+
+                        // Apply escalation decision
+                        if (escalationResult.decision === 'override') {
+                            // Sonnet says the alert is wrong - change to OK
+                            result.status = 'ok';
+                            result.message = `[Revisto por Sonnet] ${escalationResult.reason}`;
+                            result.confidence = escalationResult.confidence;
+                        } else if (escalationResult.decision === 'confirm') {
+                            // Sonnet confirms the alert
+                            result.confidence = escalationResult.confidence;
+                            result.message = `${result.message} [Confirmado por Sonnet]`;
+                        }
+                        // 'uncertain' keeps original decision
+
+                    } catch (error) {
+                        console.error('[Hierarchy] Escalation failed:', error);
+                        // Keep original decision on escalation failure
+                    }
+                }
+            }
+
             // Emit results
             const analysisResult: AnalysisResult = {
                 thinkingChunk: chunk.content,
                 results,
                 totalTime: Date.now() - startTime,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                escalationCount
             };
 
             this.emit('analysis_complete', analysisResult);
 
-            // Check for alerts and save to history
+            // Check for alerts and save to history (only confirmed alerts)
             const alerts = results.filter(r => r.status === 'alert');
             for (const alert of alerts) {
                 this.addAlertToHistory(alert, chunk.content);
@@ -379,6 +447,29 @@ export class SupervisorHierarchy extends EventEmitter {
                 setImmediate(() => this.analyzeThinking(nextChunk, context));
             }
         }
+    }
+
+    /**
+     * Extract keywords that matched from the thinking chunk
+     */
+    private extractMatchedKeywords(chunk: string, result: SupervisorResult): string[] {
+        const chunkLower = chunk.toLowerCase();
+        const matchedKeywords: string[] = [];
+
+        // Get keywords from the supervisor that generated this result
+        const supervisor = this.findNode(result.supervisorId);
+        if (supervisor) {
+            const config = supervisor.getConfig();
+            if (config.keywords) {
+                for (const keyword of config.keywords) {
+                    if (chunkLower.includes(keyword.toLowerCase())) {
+                        matchedKeywords.push(keyword);
+                    }
+                }
+            }
+        }
+
+        return matchedKeywords;
     }
 
     // ========================================
